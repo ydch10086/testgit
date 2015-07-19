@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/orange/easyui.css" />
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/icon.css" />
+<link rel="stylesheet" type="text/css" href="../../css/common.css" />
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript" src="../../js/validate.js"></script>
+<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+<script type="text/javascript" src="../../js/combobox.js"></script>
+<script type="text/javascript">
+	var id_spare_id = "";
+	var pageId = 'ems_storage_spare_dm_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/storage_spare_dm/getData.do?actionId=ems_storage_spare_dm_getData";
+	var formTemplate = "#form_em_storage_spare_dm";
+	var listId = "em_storage_spare_dm_list";
+	var ddicUrl = "/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=";
+	var editHistoryData = null;
+	var loadSpareUrl = "/ydems/actions/code_spare_dm/searchData.do?actionId=ems_code_spare_dm_searchData";
+	var loadUnitUrl = "/ydems/actions/code_unit_dm/searchData.do?actionId=ems_code_unit_dm_searchData";
+	var loadMdmUrl = "/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData";
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	/* 设备一级分类 */
+	var equipTypeUrl = "/ydems/actions/code_type_dm/searchData.do?actionId=ems_code_type_dm_searchData";
+	/* 对象类型子类型 */
+	var relateUrl ="/ydems/actions/code_relate_dm/searchData.do?actionId=ems_code_relate_dm_searchData";
+	/* 从备品备件主数据中根据标示获取单条内容 */
+	var getSpareSingleDataUrl ="/ydems/actions/code_spare_dm/getData.do?actionId=ems_code_spare_dm_getData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+
+	$(function() {
+		init();
+		//选择下拉框加载数据：
+		$("#spare_store_id").combobox({
+			onSelect : function(record) {
+			var spare_store_id_value = $("#spare_store_id").combobox('getValue');
+             loadDataBySpareId(spare_store_id_value);
+		}
+		});
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function() {
+			$$.closeJcdfDialog();
+		});
+		$("#spare_store_num").css("background-color", "pink");
+	});
+
+	function init() {
+		var unit_code_id = "unit_code";
+		var sup_code_id = "sup_code";
+		var org_id_id = "org_id";
+		var spare_type_id = "spare_type";
+		var spare_store_id = "spare_store_id";
+		id_spare_id = $$.QueryString("spare_store_id");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		callUrl = actionUrl + "?actionId=" + actionId;
+		/* 对象类型子类型类别 */
+		loadRelateData(relateUrl,'spare_sub_type');
+		/* 备品备件主数据 */
+		loadSpareIdData(loadSpareUrl,spare_store_id);
+		/* 加载单位数据列表 */
+		load_Unit_Data(loadUnitUrl, unit_code_id);
+		/*加载设备类型一级分类列表*/
+		loadEquipTypeData(equipTypeUrl, spare_type_id);
+		load_Mdm_NameData(loadMdmUrl, sup_code_id);
+		load_Orgn_NameData(loadOrgUrl, org_id_id);
+		/* 入库操作 */
+		if (mode == "edit") {
+			loadEditData();
+			InStoreToHide();
+			userTakenHide();
+			$("#spare_store_id").combobox({      
+               readonly:true
+           });
+			$("#spare_store_num").numberbox({
+				readonly:true
+			});
+			$("#spare_store_num").numberbox({
+				readonly:true
+			});
+			$("#spare_store_num").css("background", "linen");
+			 $('#store_time').datetimebox('setValue', getTimeStamp());
+             $('#out_store_time').datetimebox('setValue', getTimeStamp());
+		} else if (mode == "editInStore") {
+			loadEditData();
+			$("#spare_store_id").combobox({      
+               readonly:true
+           });
+			OutStoreToHide();
+		}
+		 else if (mode == "display") {
+			loadEditData();
+			InStoreToHide();
+			userTakenHide();
+			OutStoreToHide();
+			$("#store_person_id_tr").hide();
+			$("#store_person_name_tr").hide();
+			 $(".readonly").combobox({      
+               readonly:true
+           });
+           $("#btn_tr").css("display","none");
+			//$('#btn_save').attr({ "disabled": "disabled" });
+		} 
+		/* 新增入库操作 */
+		else if (mode == "addStore") {
+		     $('#store_time').datetimebox('setValue', getTimeStamp());
+             $('#out_store_time').datetimebox('setValue', getTimeStamp());
+             InStoreToHide();
+             userTakenHide();
+             $("#store_tr").hide();
+		}
+
+	};
+	/* 入库时弹框需要隐藏的内容 */
+    function InStoreToHide()
+    { 
+     $(".name_span").text("入库人");
+     var store_tr = $("#store_tr");//当前库存
+     var out_store = $("#out_store_tr");//出库数量
+     var out_store_date =  $("#out_store_date_tr");//出库时间
+       store_tr.hide();
+       out_store.hide();
+       out_store_date.hide();
+    }
+    /* 領用人隱藏 */
+    function userTakenHide()
+    {
+    user_taken_id_tr= $("#user_taken_id_tr");
+    user_taken_name_tr= $("#user_taken_name_tr");
+    user_taken_time_tr= $("#user_taken_time_tr");
+    user_taken_type= $("#user_taken_type");
+    user_taken_id_tr.hide();
+    user_taken_name_tr.hide();
+    user_taken_time_tr.hide();
+    user_taken_type.hide();
+    }
+    /*出库时弹框需要隐藏的内容  */
+    function OutStoreToHide()
+    {  
+       $(".name_span").text("出库人");
+        var store_tr = $("#store_tr");//当前库存
+        var in_store = $("#in_store_tr");
+		var in_store_date =  $("#in_store_date_tr");
+		var in_store_type_tr = $("#in_store_type_tr");
+		store_tr.hide();
+        in_store.hide();
+        in_store_date.hide();
+        in_store_type_tr.hide();
+    }
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData() {
+		$$.openProcessingDialog();
+		var jsonData = {
+			"spare_store_id" : id_spare_id
+		};
+		$.ajax({
+			type : "POST",
+			url : getUrl,
+			dataType : "json",
+			contentType : "application/json",
+			data : JSON.stringify(jsonData),
+			success : function(oData) {
+				$$.closeProcessingDialog();
+				if (oData != null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);
+				} else {
+					$$.showJcdfMessager('提示消息', oData.msg, 'warning');
+				}
+			}
+		});
+	}
+
+		/**
+	 * 根据备件标示加载数据
+	 */
+	function loadDataBySpareId(spare_store_id_value) {
+		$$.openProcessingDialog();
+		var jsonData = {
+			"spare_id" : spare_store_id_value
+		};
+		$.ajax({
+			type : "POST",
+			url : getSpareSingleDataUrl,
+			dataType : "json",
+			contentType : "application/json",
+			data : JSON.stringify(jsonData),
+			success : function(oData) {
+				$$.closeProcessingDialog();
+				if (oData != null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					var spare_name = editHistoryData.spare_name;
+					var org_id = editHistoryData.org_id;
+					var spare_sub_type = editHistoryData.spare_sub_type;
+					var spare_type = editHistoryData.spare_type;
+					var sup_code = editHistoryData.sup_code;
+					var brand = editHistoryData.brand;
+					  //填充相关验收流水号对应的数据
+						/* 备件名称 */
+						$("#spare_name").val(spare_name);
+						/* 所属网点 */
+						$("#org_id").combobox('setValue',org_id);
+						/* 对象子类型 */
+						$("#spare_sub_type").combobox('setValue',spare_sub_type);
+						/* 所属一级分类 */
+						$("#spare_type").combobox('setValue',spare_type);
+						/* 供应商 */
+						$("#sup_code").combobox('setValue',sup_code);
+						/* 所属品牌 */
+						$("#brand").val(brand);
+				} else {
+					$$.showJcdfMessager('提示消息', oData.msg, 'warning');
+				}
+			}
+		});
+	}
+	function submitData() {
+		/* if (!$(formTemplate).form('validate')) {
+			return false;
+		} */
+		var jsonData = $$.serializeToJson(formTemplate);
+			jsonData['spare_store_id']=$('#spare_store_id').combobox('getValue');
+		if (!jsonData)
+			return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType : "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode == 0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg + '(' + data.errorCode
+							+ ')', 'warning');
+				}
+			}
+		});
+	};
+</script>
+</head>
+<body>
+	<form id="form_em_storage_spare_dm" class="form">
+		<table>
+			<tr>
+				<td class="right"><label for="spare_store_id">备件标识:</label></td>
+				<td class="left"><input class="easyui-combobox readonly" type="text"
+					id="spare_store_id" name="spare_store_id"
+					data-options="required:true" style="width:70%;background:linen;" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="spare_name">备件名称:</label></td>
+				<td class="left"><input type="text" id="spare_name"
+					name="spare_name" style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="spare_sub_type">对象子类型:</label></td>
+				<td class="left"><input type="text" id="spare_sub_type"
+					name="spare_sub_type" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="spare_type">所属一级分类:</label></td>
+				<td class="left"><input type="text" id="spare_type"
+					name="spare_type" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="sup_code">供应商:</label></td>
+				<td class="left"><input type="text" id="sup_code"
+					name="sup_code" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="brand">所属品牌:</label></td>
+				<td class="left"><input type="text" id="brand" name="brand"
+					style="width:70%;" class="easyui-validateBox"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="org_id">分拨中心:</label></td>
+				<td class="left"><input type="text" id="org_id" name="org_id"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="store_person_id_tr">
+				<td class="right"><label for="store_person_id"><span class="name_span">入库人</span>工号:</label></td>
+				<td class="left"><input type="text" id="store_person_id" name="store_person_id"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="store_person_name_tr">
+				<td class="right"><label for="store_person_name"><span class="name_span">入库人</span>姓名:</label></td>
+				<td class="left"><input type="text" id="store_person_name" name="store_person_name"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="in_store_type_tr">
+				<td class="right"><label for="in_store_type">入库类型:</label></td>
+				<td class="left"><select id="in_store_type" name="in_store_type"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false">
+					<option value="0">采购入库</option>
+					<option value="1">拆卸入库</option>
+					<option value="2">调拨入库</option>
+					</select></td>
+			</tr>
+            <tr id="user_taken_id_tr">
+				<td class="right"><label for="user_taken_id">领用人工号:</label></td>
+				<td class="left"><input type="text" id="user_taken_id" name="user_taken_id"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="user_taken_name_tr">
+				<td class="right"><label for="user_taken_name">领用人姓名:</label></td>
+				<td class="left"><input type="text" id="user_taken_name" name="user_taken_name"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="user_taken_time_tr">
+				<td class="right"><label for="user_taken_time">领用时间:</label>
+				</td>
+				<td class="left"><input type="text" id="user_taken_time"
+					name="user_taken_time" style="width:70%;"
+					class="easyui-datetimebox readonly" data-options="required:true" /></td>
+			</tr>
+			<tr id="user_taken_type">
+				<td class="right"><label for="user_taken_type">领用类型:</label></td>
+				<td class="left"><select type="text" id="user_taken_type"
+					name="user_taken_type" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false">
+					<option value="100">新领用</option>
+					<option value="101">已旧换新</option>
+					</select></td>
+			</tr>
+			<tr id="store_tr">
+				<td class="right"><label for="spare_store_num">当前库存:</label></td>
+				<td class="left"><input type="text" id="spare_store_num"
+					name="spare_store_num" class="easyui-numberbox readonly" style="width:70%;"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="in_store_tr">
+				<td class="right"><label for="spare_in_store_num">入库数量:</label>
+				</td>
+				<td class="left"><input type="text" id="spare_in_store_num"
+					name="spare_in_store_num" style="width:70%;"
+					class="easyui-numberbox readonly" data-options="required:false" /></td>
+			</tr>
+			<tr id="in_store_date_tr">
+				<td class="right"><label for="store_time">入库时间:</label>
+				</td>
+				<td class="left"><input type="text" id="store_time"
+					name="store_time" style="width:70%;"
+					class="easyui-datetimebox readonly" data-options="required:true" /></td>
+			</tr>
+			<tr id="out_store_tr">
+				<td class="right"><label for="spare_out_store_num">出库数量:</label>
+				</td>
+				<td class="left"><input type="text" id="spare_out_store_num"
+					name="spare_out_store_num" style="width:70%;"
+					class="easyui-numberbox readonly" data-options="required:false" /></td>
+			</tr>
+			<tr id="out_store_date_tr">
+				<td class="right"><label for="out_store_time">出库时间:</label>
+				</td>
+				<td class="left"><input type="text" id="out_store_time"
+					name="out_store_time" style="width:70%;"
+					class="easyui-datetimebox readonly" data-options="required:true" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="unit_code">单位:</label></td>
+				<td class="left"><input type="text" id="unit_code"
+					name="unit_code" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;"><a
+					id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton"
+					iconCls="icon-cancel">取消</a></td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

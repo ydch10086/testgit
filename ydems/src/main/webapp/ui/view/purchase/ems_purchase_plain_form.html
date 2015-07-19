@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/orange/easyui.css" />
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/icon.css" />
+<link rel="stylesheet" type="text/css" href="../../css/common.css" />
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript" src="../../js/validate.js"></script>
+<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+<script type="text/javascript" src="../../js/combobox.js"></script>
+<script type="text/javascript">
+	var id_pur_no = "";
+	var pageId = 'ems_purchase_plain_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/purchase_plain/getData.do?actionId=ems_purchase_plain_getData";
+	var formTemplate = "#form_em_purchase_plain";
+	var listId = "em_purchase_plain_list";
+	var ddicUrl = "/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=";
+	var editHistoryData = null;
+	/*获取供应商信息*/
+	var getMdmUrl = "/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData";
+	/*获取大型设备编号  */
+	var equip_Id_Url = "/ydems/actions/code_bigequip_dm/searchData.do?actionId=ems_code_bigequip_dm_searchData";
+	/*获取组织编号  */
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	/* 获取单位信息 */
+	var loadUnitUrl = "/ydems/actions/code_unit_dm/searchData.do?actionId=ems_code_unit_dm_searchData";
+	/* 设备型号 */
+	var modelUrl = "/ydems/actions/code_mode_dm/searchData.do?actionId=ems_code_mode_dm_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+
+	$(function() {
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function() {
+			$$.closeJcdfDialog();
+		});
+	});
+	function init() {
+		id_pur_no = $$.QueryString("pur_no");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		 pur_obj_id = "pur_obj";
+		sup_code_id="sup_code";
+		pur_org_id = "pur_org";
+		pur_unit_id = "pur_unit";
+		type_txt_id = "type_txt";
+		loadCombobox(ddicUrl, "pur_status", "pur_status");
+		callUrl = actionUrl + "?actionId=" + actionId;
+		/* 获取具体设备编号 */
+	    loadEquipIdData(equip_Id_Url, pur_obj_id);
+		/* 加载供应商数据 */
+		load_Mdm_NameData(getMdmUrl,sup_code_id);
+		/* 加载组织机构数据 */
+		load_Orgn_NameData(loadOrgUrl,pur_org_id);
+		/* 加载数量单位数据 */
+		load_Unit_Data(loadUnitUrl,pur_unit_id);
+		/* 设备型号列表 */
+		loadEquipModelData(modelUrl,type_txt_id);
+		if (mode == "edit") {
+			loadEditData();
+			  $("#pur_no").combobox({      
+               readonly:true
+           });
+			$('#pur_no').attr({
+				editable : false
+			});
+		} else if(mode == "updateStatus")/* 审核人审核信息 */
+		{
+          loadEditData();
+          setReadOnly();
+          $('#exa_date').datebox('setValue', getDate());		  
+		}
+		else if (mode == "display") {
+			loadEditData();
+		   $(".readonly").combobox({      
+               readonly:true
+           });
+           $("#btn_tr").css("display","none");
+			/* $("#btn_tr").hide();
+			setAllInputReadOnly(); */
+		} else if (mode == "add") {
+		    hiddenExa();
+			$('#pur_date').datebox('setValue', getDate());
+			//$('#sup_code').combobox('setValue', '');
+			$('#pla_date').datebox('setValue', getDate());
+			$('#app_date').datebox('setValue', getDate());
+			//$("#exa_date").datebox("setValue","0000-00-00");
+			//$('#pur_status').combobox('setValue', '');
+
+		}
+
+	};
+
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData() {
+		$$.openProcessingDialog();
+		var jsonData = {
+			"pur_no" : id_pur_no
+		};
+		$.ajax({
+			type : "POST",
+			url : getUrl,
+			dataType : "json",
+			contentType : "application/json",
+			data : JSON.stringify(jsonData),
+			success : function(oData) {
+				$$.closeProcessingDialog();
+				if (oData != null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);
+				} else {
+					$$.showJcdfMessager('提示消息', oData.msg, 'warning');
+				}
+			}
+		});
+	}
+	 /*隐藏审核人信息标签 */
+	function hiddenExa()
+	{
+	  $("#exa_emp_tr").hide();
+	  $("#exa_emp_num_tr").hide();
+	  $("#exa_date_tr").hide();
+	}
+	/*显示审核人标签*/
+	function showExa()
+	{
+	  $("#exa_emp_tr").show();
+	  $("#exa_emp_num_tr").show();
+	  $("#exa_date_tr").show();
+	}
+	function setReadOnly()
+	{
+		     $("#pur_no").combobox({ 
+		        
+		             readonly:true
+		          }); 
+		          
+            //setReadOnly("pur_obj");
+            $("#pur_obj").combobox({      
+              // disabled:true
+              readonly:true
+           }); 
+
+            $("#pur_org").combobox({      
+              readonly:true
+           });
+            $("#type_txt").combobox({      
+              readonly:true
+           });
+            $("#sup_code").combobox({      
+               readonly:true
+           });
+            $("#pur_amt").combobox({      
+              readonly:true
+           });
+            $("#pur_unit").combobox({      
+               readonly:true
+           });
+            $("#app_emp").combobox({      
+              readonly:true
+           });
+            $("#app_emp_num").combobox({      
+              readonly:true
+           });
+            $("#app_date").combobox({      
+               readonly:true
+           });
+           $("input:hidden").removeAttr("disabled");
+	}
+	function submitData() {
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if (!jsonData)
+			return false;
+		//如果数据验证通过(即数据合法)
+		jsonData['pur_no']=$('#pur_no').combobox('getValue');
+		jsonData['pur_obj']=$("#pur_obj").combobox('getValue');
+		jsonData['pur_org']=$("#pur_org").combobox('getValue');
+		jsonData['type_txt']=$('#type_txt').combobox('getValue');
+		jsonData['sup_code']=$('#sup_code').combobox('getValue');
+		jsonData['pur_amt']=$('#pur_amt').combobox('getValue');
+		jsonData['pur_unit']=$('#pur_unit').combobox('getValue');
+		jsonData['app_emp']=$('#app_emp').numberbox('getValue');
+		jsonData['app_emp_num']=$('#app_emp_num').combobox('getValue');
+		jsonData['app_date']=$('#app_date').datebox('getValue');
+		//alert("app_date:"+$('#app_date').datebox('getValue'));
+		$$.openProcessingDialog();
+
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType : "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode == 0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg + '(' + data.errorCode
+							+ ')', 'warning');
+				}
+			}
+		});
+	};
+</script>
+</head>
+<body>
+	<form id="form_em_purchase_plain" class="form">
+		<table>
+			<tr>
+				<td class="right"><label for="">采购计划流水号:</label>
+				</td>
+				<td class="left">
+				<input type="" id="pur_no" name="pur_no"
+					style="width:70%;" class="easyui-numberbox readonly"
+					data-options="required:true" />
+				</td>
+			</tr>
+
+			<tr>
+				<td class="right"><label for="pur_obj">设备编号:</label>
+				</td>
+				<td class="left"><input type="" id="pur_obj" name="pur_obj"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pur_org">申请分拨:</label>
+				</td>
+				<td class="left"><input type="" id="pur_org" name="pur_org"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="type_txt">设备型号:</label>
+				</td>
+				<td class="left"><input type="text" id="type_txt"
+					name="type_txt" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="sup_code">供应商:</label>
+				</td>
+				<td class="left"><input type="text" id="sup_code"
+					name="sup_code" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pur_amt">申请数量:</label>
+				</td>
+				<td class="left"><input type="" id="pur_amt" name="pur_amt"
+					style="width:70%;" class="easyui-numberbox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pur_unit">数量单位:</label>
+				</td>
+				<td class="left"><input type="text" id="pur_unit"
+					name="pur_unit" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="app_emp">申请人:</label>
+				</td>
+				<td class="left"><input type="text" id="app_emp" name="app_emp"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="app_emp_num">申请人工号:</label>
+				</td>
+				<td class="left"><input type="text" id="app_emp_num" name="app_emp_num"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="app_date">申请日期:</label>
+				</td>
+				<td class="left"><input type="text" id="app_date"
+					name="app_date" style="width:70%;" class="easyui-datebox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr id="exa_emp_tr">
+				<td class="right"><label for="exa_emp">审核人:</label>
+				</td>
+				<td class="left"><input type="text" id="exa_emp" name="exa_emp"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr id="exa_emp_num_tr">
+				<td class="right"><label for="exa_emp_num">审核人工号:</label>
+				</td>
+				<td class="left"><input type="text" id="exa_emp_num" name="exa_emp_num"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr id="exa_date_tr">
+				<td class="right"><label for="exa_date">审核日期:</label>
+				</td>
+				<td class="left"><input type="text" id="exa_date"
+					name="exa_date" style="width:70%;" class="easyui-datebox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pur_date">采购日期:</label>
+				</td>
+				<td class="left"><input type="text" id="pur_date"
+					name="pur_date" style="width:70%;" class="easyui-datebox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pla_date">计划到货日期:</label>
+				</td>
+				<td class="left"><input type="text" id="pla_date"
+					name="pla_date" style="width:70%;" class="easyui-datebox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pur_status">记录状态:</label>
+				</td>
+				<td class="left"><input type="text" id="pur_status"
+					name="pur_status" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" />
+				</td>
+			</tr>
+
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;"><a
+					id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton"
+					iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/orange/easyui.css" />
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/icon.css" />
+<link rel="stylesheet" type="text/css" href="../../css/common.css" />
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript" src="../../js/validate.js"></script>
+<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+<script type="text/javascript" src="../../js/combobox.js"></script>
+<script type="text/javascript">
+	var id_che_no = "";
+	var pageId = 'ems_purchase_check_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/purchase_check/getData.do?actionId=ems_purchase_check_getData";
+	var getPurchasePlainUrl = "/ydems/actions/purchase_plain/getData.do?actionId=ems_purchase_plain_getData";
+	var formTemplate = "#form_em_purchase_check";
+	var listId = "em_purchase_check_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	/* 获取采购计划数据 */
+	var loadPurchasePlainUrl = "/ydems/actions/purchase_plain/searchData.do?actionId=ems_purchase_plain_searchData";
+	var loadEmployeeUrl = "/ydems/actions/mdm_employee/searchData.do?actionId=ems_mdm_employee_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+
+	$(function() {
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function() {
+			$$.closeJcdfDialog();
+		});
+		$("#pur_no").combobox({
+			onSelect : function(record) {
+			var pur_no_value = $("#pur_no").combobox('getValue');
+             loadDataByPurchaseId(pur_no_value);
+		}
+		});
+	});
+
+	function init() {
+		id_che_no = $$.QueryString("che_no");
+		che_obj_id = "che_obj";//设备编号id
+		che_org_id = "che_org";//组织机构编号
+		sup_code_id = "sup_code";//供应商编号
+		pur_no_id = "pur_no";//采购计划流水号
+		che_emp_id = "che_emp";//验收人员
+		che_status_id = "che_status";//验收状态
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		/* 验收状态 */
+        loadCombobox(ddicUrl,che_status_id,che_status_id);
+        /* 验收结果下拉列表 */
+        loadCombobox(ddicUrl,'result_type','che_res_type');
+        /* 人员信息下拉列表数据 */
+        load_Empolyee_Data(loadEmployeeUrl,che_emp_id);
+		callUrl = actionUrl + "?actionId=" + actionId;
+		load_Purchase_Plain_Data(loadPurchasePlainUrl, che_obj_id,
+					che_org_id, sup_code_id, pur_no_id);
+		if (mode == "edit") {
+			loadCombobox(ddicUrl,che_status_id,che_status_id);
+			loadEditData();
+			 $("#che_no").combobox({      
+               readonly:true
+           });
+			$('#che_no').attr({
+				editable : false
+			});
+		} else if (mode == "display") {
+			loadEditData();
+			$(".readonly").combobox({      
+               readonly:true
+           });
+           $("#btn_tr").css("display","none");
+			$('#btn_save').attr({
+				"disabled" : "disabled"
+			});
+		} else if (mode == "add") {
+			$('#sup_code').combobox('setValue', '');
+			$('#che_date').datebox('setValue', getDate());
+			$('#result_type').combobox('setValue', '');
+			$('#plain_date').datebox('setValue', getDate());
+			$('#act_date').datebox('setValue', getDate());
+			$('#che_status').combobox('setValue', '');
+
+		}
+
+	};
+
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData() {
+		$$.openProcessingDialog();
+		var jsonData = {
+			"che_no" : id_che_no
+		};
+		$.ajax({
+			type : "POST",
+			url : getUrl,
+			dataType : "json",
+			contentType : "application/json",
+			data : JSON.stringify(jsonData),
+			success : function(oData) {
+				$$.closeProcessingDialog();
+				if (oData != null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);
+				} else {
+					$$.showJcdfMessager('提示消息', oData.msg, 'warning');
+				}
+			}
+		});
+	}
+	/**
+	 * 根据采购计划流水号加载数据
+	 */
+	function loadDataByPurchaseId(pur_no_id) {
+		$$.openProcessingDialog();
+		var jsonData = {
+			"pur_no" : pur_no_id
+		};
+		$.ajax({
+			type : "POST",
+			url : getPurchasePlainUrl,
+			dataType : "json",
+			contentType : "application/json",
+			data : JSON.stringify(jsonData),
+			success : function(oData) {
+				$$.closeProcessingDialog();
+				if (oData != null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					var pur_obj = editHistoryData.pur_obj;
+					var pur_org = editHistoryData.pur_org;
+					var sup_code = editHistoryData.sup_code;
+					  //填充相关验收流水号对应的数据
+						/*设备编号  */
+						$("#che_obj").combobox('setValue',pur_obj);
+						/* 所属网点 */
+						$("#che_org").combobox('setValue',pur_org);
+						/* 供应商 */
+						$("#sup_code").combobox('setValue',sup_code);
+				} else {
+					$$.showJcdfMessager('提示消息', oData.msg, 'warning');
+				}
+			}
+		});
+	}
+	function submitData() {
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if (!jsonData)
+			return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType : "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode == 0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg + '(' + data.errorCode
+							+ ')', 'warning');
+				}
+			}
+		});
+	};
+	function loadCombobox(selectUrl,selectId,status)
+	{
+	debugger;
+	reqUrl = selectUrl+status;
+	//alert(ddicUrl);
+	 $.ajax({
+            type: "POST",
+            url:reqUrl,
+            contentType: "application/json", //必须有
+            dataType: "json", //表示返回值类型，不必须
+            success: function (jsonData) {
+             editHistoryData = jsonData.data;
+             //alert(editHistoryData);
+            //data-options="valueField:'value',textField:'text',data:[{'value':'1','text':'java'},{'value':'2','text':'C#'}]"
+               var dataObj = [];
+              for(var i=0;i<editHistoryData.length;i++)
+              {
+               var value1=editHistoryData[i].code_type;
+               var text1=editHistoryData[i].code_name;       
+              // alert(value1);       
+               dataObj.push({value:value1,text:text1});
+              } 
+              $("#"+selectId).combobox({
+               	valueField: 'value',
+               	textField: 'text',
+				data:dataObj
+				});
+           }
+        
+        });
+    }
+</script>
+</head>
+<body>
+	<form id="form_em_purchase_check" class="form">
+		<table>
+			<tr>
+				<td class="right"><label for="">设备验收流水号:</label></td>
+				<td class="left"><input type="" id="che_no" name="che_no"
+					style="width:70%;" class="easyui-numberbox readonly"
+					data-options="required:true" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pur_no">采购计划流水号:</label></td>
+				<td class="left"><input type="" id="pur_no" name="pur_no"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="che_obj">设备编号:</label></td>
+				<td class="left"><input type="" id="che_obj" name="che_obj"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="che_org">操作机构组织:</label></td>
+				<td class="left"><input type="" id="che_org" name="che_org"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="sup_code">验收供应商:</label></td>
+				<td class="left"><input type="text" id="sup_code"
+					name="sup_code" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="che_date">设备验收时间:</label></td>
+				<td class="left"><input type="text" id="che_date"
+					name="che_date" style="width:70%;" class="easyui-datebox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="che_emp">验收人员:</label></td>
+				<td class="left"><input type="" id="che_emp" name="che_emp"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="result_type">验收结果:</label></td>
+				<td class="left"><input type="text" id="result_type"
+					name="result_type" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pro_emp">整改跟进人员:</label></td>
+				<td class="left"><input type="" id="pro_emp" name="pro_emp"
+					style="width:70%;" class="easyui-numberbox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="pro_txt">整改结果:</label></td>
+				<td class="left"><input type="text" id="pro_txt" name="pro_txt"
+					style="width:70%;" class="easyui-validateBox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="plain_date">整改要求完成时间:</label></td>
+				<td class="left"><input type="text" id="plain_date"
+					name="plain_date" style="width:70%;" class="easyui-datebox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="act_date">整改实际完成时间:</label></td>
+				<td class="left"><input type="text" id="act_date"
+					name="act_date" style="width:70%;" class="easyui-datebox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="che_status">验收状态:</label></td>
+				<td class="left"><input type="text" id="che_status"
+					name="che_status" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;"><a
+					id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton"
+					iconCls="icon-cancel">取消</a></td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

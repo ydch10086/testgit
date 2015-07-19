@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var id_obj_attr_id="";
+	var id_obj_id="";
+	var pageId = 'cip_admin_auth_attr_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/admin_auth_attr/getData.do?actionId=cip_admin_auth_attr_getData";
+	var formTemplate = "#form_cip_admin_auth_attr";
+	var listId = "cip_admin_auth_attr_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+		id_obj_attr_id=$$.QueryString("obj_attr_id");
+		id_obj_id=$$.QueryString("obj_id");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		
+		
+		callUrl = actionUrl+"?actionId="+actionId;
+		if(mode=="edit"){
+			loadEditData();
+			$('#obj_attr_id').attr({editable:false});
+			$('#obj_id').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			
+			
+		}
+
+	};
+	
+	
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"obj_attr_id":id_obj_attr_id,
+		"obj_id":id_obj_id
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_cip_admin_auth_attr" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">权限对象属性id:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="obj_attr_id" name="obj_attr_id" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="">权限对象id:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="obj_id" name="obj_id" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="obj_attr_name">权限对象属性描述:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="obj_attr_name" name="obj_attr_name" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+		
+			<tr>
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

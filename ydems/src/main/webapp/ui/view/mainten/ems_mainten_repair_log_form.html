@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/orange/easyui.css" />
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/icon.css" />
+<link rel="stylesheet" type="text/css" href="../../css/common.css" />
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript" src="../../js/validate.js"></script>
+<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+<script type="text/javascript" src="../../js/combobox.js"></script>
+<script type="text/javascript">
+	var id_rep_no = "";
+	var pageId = 'ems_mainten_repair_log_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/mainten_repair_log/getData.do?actionId=ems_mainten_repair_log_getData";
+	var formTemplate = "#form_em_mainten_repair_log";
+	var listId = "em_mainten_repair_log_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	/*获取供应商信息*/
+	var getMdmUrl = "/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData";
+	/*获取大型设备信息*/
+	var equip_Id_Url = "/ydems/actions/code_bigequip_dm/searchData.do?actionId=ems_code_bigequip_dm_searchData";
+	/*获取组织编号  */
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	/* 获取维修类型 */
+	var getRepireTypeUrl = "/ydems/actions/code_repair_dm/searchData.do?actionId=ems_code_repair_dm_searchData";
+	/* 故障类型主数据 */
+	var loadFaultUrl = "/ydems/actions/code_fault_dm/searchData.do?actionId=ems_code_fault_dm_searchData";
+	var loadSpareUrl = "/ydems/actions/code_spare_dm/searchData.do?actionId=ems_code_spare_dm_searchData";
+	var loadEmployeeUrl = "/ydems/actions/mdm_employee/searchData.do?actionId=ems_mdm_employee_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+
+	$(function() {
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function() {
+			$$.closeJcdfDialog();
+		});
+		function add(v) {
+		//根据是不是第一次获得数字，决定保存的值：
+		reStr ? reStr += ';' + v : reStr = v;
+		//这里的reStr就是你想要的结果：
+		//document.getElementById("re").value = reStr;
+		$('#repair_emps_name').textbox('setValue', reStr)//赋值
+	   }
+		var reStr = false;
+		$('#repair_emp_no').combobox({
+			onSelect : function(record) {
+				var repair_emp_no = $('#repair_emp_no').combobox('getText');
+				add(repair_emp_no);
+			}
+		});
+	});
+	function init() {
+		obj_id = 'obj_id';
+		rep_org_id = "rep_org";
+		sup_code_id = "sup_code";
+		repair_type_id = "repair_type";
+		fault_type_id = "fault_type";
+		cla_id = "cla_id";
+		repair_emp_no_id = "repair_emp_no";
+		id_rep_no = $$.QueryString("rep_no");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		/* 加载设备编号列表 */
+		loadEquipIdData(equip_Id_Url, obj_id);
+		/* 加载组织机构列表 */
+		load_Orgn_NameData(loadOrgUrl, rep_org_id);
+		/* 加载供应商列表 */
+		load_Mdm_NameData(getMdmUrl, sup_code_id);
+		/* 加载设备维修类型数据 */
+		loadRepairTypeData(getRepireTypeUrl, repair_type_id);
+		/* 加载故障类型列表 */
+		loadFaultData(loadFaultUrl, fault_type_id);
+		/*备品备件主数据*/
+		loadSpareData(loadSpareUrl, cla_id);
+		/* 维修人列表 */
+		load_Empolyee_Data(loadEmployeeUrl, repair_emp_no_id);
+		/* loadCombobox('sup_code','sup_code');
+		loadCombobox('fault_type','fault_type');
+		loadCombobox('repair_type','repair_type');
+		 */
+		callUrl = actionUrl + "?actionId=" + actionId;
+		if (mode == "edit") {
+			loadEditData();
+			$("#rep_no").combobox({
+				readonly : true
+			});
+			$('#rep_no').attr({
+				editable : false
+			});
+		} else if (mode == "display") {
+			loadEditData();
+			$(".readonly").combobox({
+				readonly : true
+			});
+			$("#btn_tr").css("display", "none");
+			$('#btn_save').attr({
+				"disabled" : "disabled"
+			});
+		} else if (mode == "add") {
+
+			$('#apply_date').datebox('setValue', getDate());
+			$('#sup_code').combobox('setValue', '');
+			$('#begin_time').datetimebox('setValue', getTimeStamp());
+			$('#end_time').datetimebox('setValue', getTimeStamp());
+			$('#fault_type').combobox('setValue', '');
+			$('#repair_type').combobox('setValue', '');
+
+		}
+
+	};
+
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData() {
+		$$.openProcessingDialog();
+		var jsonData = {
+			"rep_no" : id_rep_no
+		};
+		$.ajax({
+			type : "POST",
+			url : getUrl,
+			dataType : "json",
+			contentType : "application/json",
+			data : JSON.stringify(jsonData),
+			success : function(oData) {
+				$$.closeProcessingDialog();
+				if (oData != null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);
+				} else {
+					$$.showJcdfMessager('提示消息', oData.msg, 'warning');
+				}
+			}
+		});
+	}
+
+	function submitData() {
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if (!jsonData)
+			return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType : "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode == 0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg + '(' + data.errorCode
+							+ ')', 'warning');
+				}
+			}
+		});
+	};
+</script>
+</head>
+<body>
+	<form id="form_em_mainten_repair_log" class="form">
+		<table>
+			<tr>
+				<td class="right"><label for="">维修流水号:</label></td>
+				<td class="left"><input type="" id="rep_no" name="rep_no"
+					style="width:70%;" class="easyui-numberbox readonly"
+					data-options="required:true" /></td>
+			</tr>
+
+			<tr>
+				<td class="right"><label for="obj_id">设备编码:</label></td>
+				<td class="left"><input type="" id="obj_id" name="obj_id"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="apply_date">维修申请日期:</label></td>
+				<td class="left"><input type="text" id="apply_date"
+					name="apply_date" style="width:70%;"
+					class="easyui-datebox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="rep_org">所属组织:</label></td>
+				<td class="left"><input type="" id="rep_org" name="rep_org"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="rep_orgeh">设备位置编码:</label></td>
+				<td class="left"><input type="" id="rep_orgeh" name="rep_orgeh"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="sup_code">供应商:</label></td>
+				<td class="left"><input type="text" id="sup_code"
+					name="sup_code" style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="fault_txt">故障现象:</label></td>
+				<td class="left"><input type="text" id="fault_txt"
+					name="fault_txt" style="width:70%;" class="easyui-textbox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="begin_time">报修时间:</label></td>
+				<td class="left"><input type="text" id="begin_time"
+					name="begin_time" style="width:70%;"
+					class="easyui-datetimebox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="end_time">报复时间:</label></td>
+				<td class="left"><input type="text" id="end_time"
+					name="end_time" style="width:70%;"
+					class="easyui-datetimebox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="fault_reason">故障原因:</label></td>
+				<td class="left"><input type="text" id="fault_reason"
+					name="fault_reason" style="width:70%;"
+					class="easyui-validateBox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="fault_solution">处理措施:</label></td>
+				<td class="left"><input type="text" id="fault_solution"
+					name="fault_solution" style="width:70%;"
+					class="easyui-validateBox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="fault_type">故障类型:</label></td>
+				<td class="left"><input type="text" id="fault_type"
+					name="fault_type" style="width:70%;"
+					class="easyui-combobox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="cla_id">更换部件:</label></td>
+				<td class="left"><input type="" id="cla_id" name="cla_id"
+					style="width:70%;" class="easyui-combobox readonly"
+					data-options="required:false" /></td>
+			</tr>
+			<tr>
+				<td class="right"><label for="repair_stye_txt">部件型号:</label></td>
+				<td class="left"><input type="text" id="repair_stye_txt"
+					name="repair_stye_txt" style="width:70%;"
+					class="easyui-validateBox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="repair_type">维修类型:</label></td>
+				<td class="left"><input type="text" id="repair_type"
+					name="repair_type" style="width:70%;"
+					class="easyui-combobox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="repair_emp_quan">维修人数:</label></td>
+				<td class="left"><input type="" id="repair_emp_quan"
+					name="repair_emp_quan" style="width:70%;"
+					class="easyui-numberbox readonly" data-options="required:false" />
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right"><label for="repair_emp_no">维修人:</label></td>
+				<td class="left"><label>选择维修人:</label><input type="" id="repair_emp_no"
+					name="repair_emp_no" style="width:40%;"
+					class="easyui-combobox readonly" data-options="required:false" />
+					<input id="repair_emps_name" name="repair_emps_name"
+					class="easyui-textbox" data-options="multiline:true" value=""
+					style="width:70%;height:100px"></td>
+			</tr>
+			<!-- <tr>
+				<td class="right">
+					<label for="repair_process_no">维修流程号:</label>
+				</td>
+				<td class="left">
+					<input type="" id="repair_process_no" name="repair_process_no" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr> -->
+			<!-- <tr>
+				<td class="right">
+					<label for="op">修改者:</label>
+				</td>
+				<td class="left">
+					<input type="" id="op" name="op" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr> -->
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;"><a
+					id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton"
+					iconCls="icon-cancel">取消</a></td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

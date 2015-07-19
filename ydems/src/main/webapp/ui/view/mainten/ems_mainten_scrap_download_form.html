@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript" src="../../js/combobox.js"></script>
+	<script type="text/javascript">
+		var id_scrap_no="";
+	var pageId = 'ems_mainten_scrap_upload_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/mainten_scrap_upload/getData.do?actionId=ems_mainten_scrap_upload_getData";
+	var formTemplate = "#form_em_mainten_scrap_upload";
+	var listId = "em_mainten_scrap_upload_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+    /*获取供应商信息*/
+	var getMdmUrl = "/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData";
+	/*获取设备编号  */
+	var equip_Id_Url = "/ydems/actions/code_bigequip_dm/searchData.do?actionId=ems_code_bigequip_dm_searchData";
+	/*获取组织编号  */
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	/* 获取单位信息 */
+	var loadUnitUrl = "/ydems/actions/code_unit_dm/searchData.do?actionId=ems_code_unit_dm_searchData";
+	/* 加载人员信息 */
+	var loadEmployeeUrl = "/ydems/actions/mdm_employee/searchData.do?actionId=ems_mdm_employee_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+		id_scrap_no=$$.QueryString("scrap_no");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		obj_id = "obj_id";
+		scrap_org_id = "scrap_org";
+		sup_code_id = "sup_code";
+		start_op_id = "start_op";
+		examine_op_id = "examine_op";
+		loadCombobox(ddicUrl,'examine_status','examine_status');
+        /* 加载设备编号列表 */
+		loadEquipIdData(equip_Id_Url,obj_id);
+		 /* 加载组织机构列表 */
+        load_Orgn_NameData(loadOrgUrl,scrap_org_id);
+        /* 加载供应商列表 */
+        load_Mdm_NameData(getMdmUrl,sup_code_id);
+        /* 加载人员信息 */
+        load_Empolyee_Data(loadEmployeeUrl,start_op_id);
+        load_Empolyee_Data(loadEmployeeUrl,examine_op_id);
+		callUrl = actionUrl+"?actionId="+actionId;
+		if(mode=="edit"){
+			loadEditData();
+			hiddenExa();
+			$('#scrap_no').attr({editable:false});
+           $("#scrap_no").combobox({      
+               readonly:true
+           });
+		}else if(mode =="review")
+		{
+		 loadEditData();
+		 $(".review_readonly").combobox({      
+               readonly:true
+           });
+         showExa();
+            $("input[readonly]").css("background-color","#E4E2E4");
+		}
+		else if(mode=="display"){
+			loadEditData();
+			$(".readonly").combobox({      
+               readonly:true
+           });
+           $("#btn_tr").css("display","none");
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+		     hiddenExa();
+			 $('#sup_code').combobox('setValue', '');
+             $('#begin_date').datebox('setValue', getDate());
+             $('#theory_date').datebox('setValue', getDate());
+               $('#act_date').datebox('setValue', getDate());
+		}
+	}
+	/*隐藏审核人信息标签 */
+	function hiddenExa()
+	{
+	  $("#examine_op_tr").hide();
+	  $("#examine_status_tr").hide();
+	}
+	/*显示审核人标签*/
+	function showExa()
+	{
+	  $("#examine_op_tr").show();
+	   $("#examine_status_tr").show();
+	}
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"scrap_no":id_scrap_no
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		 	jsonData['scrap_no']=$('#scrap_no').numberbox('getValue');
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	    
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_em_mainten_scrap_upload" class="form">
+		<div class="easyui-panel" title="Upload File" style="width:400px;padding:30px 70px 50px 70px">
+		<div style="margin-bottom:20px">
+			<div>Name:</div>
+			<input class="easyui-textbox" style="width:100%">
+		</div>
+		<div style="margin-bottom:20px">
+			<div>File1:</div>
+			<input class="easyui-filebox" name="file1" data-options="prompt:'Choose a file...'" style="width:100%">
+		</div>
+		<div style="margin-bottom:20px">
+			<div>File2:</div>
+			<input class="easyui-filebox" name="file2" data-options="prompt:'Choose another file...'" style="width:100%">
+		</div>
+		<div>
+			<a href="#" class="easyui-linkbutton" style="width:100%">Upload</a>
+		</div>
+	</div>
+	</form>
+</body>
+</html>

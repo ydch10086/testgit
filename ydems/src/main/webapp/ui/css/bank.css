@@ -1,0 +1,87 @@
+.bank {
+	float: left;
+	margin: 10px;
+	padding: 5px;
+	width: 300px;
+	height: 180px;
+	border-radius: 4px;
+	background-color: white;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	border: 2px solid #DDDDDD;
+	cursor: pointer;
+}
+
+.bank-add {
+	float: left;
+	margin: 10px;
+	padding: 5px;
+	width: 300px;
+	height: 180px;
+	border-radius: 4px;
+	background-color: #white;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	border: 2px solid #DDDDDD;
+}
+
+.bank.account_default {
+	border: 2px solid #d4a375;
+}
+
+.bank .top {
+	height: 40px;
+	padding: 5px;
+}
+
+.bank .center {
+	height: 40px;
+	padding: 5px;
+}
+
+.bank .foot {
+	height: 40px;
+	padding: 5px;
+}
+
+.bank .default {
+	height: 40px;
+	padding: 5px;
+}
+
+.bank .account-main-info {
+	font-size: 18px;
+}
+
+.bank .account-minor-info {
+	padding: 3px 0;
+	font-size: 14px;
+	color: gray;
+}
+
+.bank .top .account-option-button {
+	padding: 10px 0;
+}
+
+.bank .top span{
+	padding: 10px 0;
+}
+
+.float-right {
+	float: right;
+}
+
+.float-left {
+	float: left;
+}
+
+.bank a {
+	padding-left: 5px;
+	font-size: 14px;
+	color: black;
+}
+
+.bank a:HOVER {
+	text-decoration: underline;
+	padding-left: 5px;
+	font-size: 16px;
+	color: black;
+}

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var objectName = '系统资源信息';
+		var listTemplate = '#cip_admin_resource_grid_list';
+		var listId = "cip_admin_resource_grid_list";
+		var formSearchTemplate = '#cip_admin_resource_searchForm';
+		var searchFormId = "cip_admin_resource_searchForm";
+		var gridMenuId = '#cip_admin_resource_grid_menu';
+		var addFormUrl = 'admin/cip_admin_resource_form.html?mode=add';
+		var updateFormUrl = 'admin/cip_admin_resource_form.html?mode=edit';
+		var urlSearch = '/ydt6f2/actions/admin_resource/searchData.do';
+		var ddicUrl = '/ydt6f2/actions/common/domain/getDomains.do?domainId=';
+		var pageId = 'cip_admin_resource_list';
+		var appId = '/ydt6f2';
+		var urlResource = "/ydt6f2/actions/common/user/getResources.do?resource_id=";
+		var urlActionForm = ""; //action form url
+		var authActions = {}; //当前用户授权的行为项目
+		var expellActions = {
+			admin_resource_searchData:urlSearch
+		}; //当前用户需要特殊处理的按钮，不在menubar上显示的 
+		
+		var today = getToday();
+		$(function(){
+			//loadCompanyCombobox();
+			//loadCombobox();
+			getAuthButtons(pageId,gridMenuId,authActions,expellActions);
+			loadDatagrid();
+		});
+		
+		function doAction(pageId,buttonId,actionUrl){
+			if(authActions.hasOwnProperty(buttonId)){
+				if(buttonId.indexOf('addData')>0){
+					addData(appId+actionUrl);
+				}
+				else if(buttonId.indexOf('updateData')>0){
+					updateData(appId+actionUrl);
+				}
+				else if(buttonId.indexOf('deleteData')>0){
+					deleteData(appId+actionUrl);
+				}
+				else if(buttonId.indexOf('searchData')>0){
+					searchData(appId+actionUrl);
+				}
+				if(buttonId=='cash_account_addData'){
+					addData(appId+actionUrl);
+				}
+				else if(buttonId=='cash_account_updateData'){
+					editData(appId+actionUrl);
+				}
+				else {
+					//默认操作
+					var selectRow = $$.getSingleSelectRow(listId, "请选择你要操作的"+objectName);
+
+			    	if(selectRow){
+						var tempUrl = '';
+   						tempUrl = tempUrl+'&resource_id='+selectRow.resource_id;
+		   				tempUrl += "&actionUrl="+appId+actionUrl+"&tableId="+listId;
+			    		$$.openJcdfDialog(urlActionForm+tempUrl, '操作'+objectName, 500, 600);
+			    	}					
+				}
+			}
+			else {
+				alert('当前用户没有该操作授权!');
+			}
+		}
+		
+		function searchData(actionUrl){
+			var params = $$.serializeToJson(formSearchTemplate);
+			var json = { "search_condition" : JSON.stringify(params) };
+			$(listTemplate).datagrid('load', json );		
+		};
+
+		
+		function searchReset(){
+			$(formSearchTemplate).form('reset');
+		};
+		
+		
+		function addData(actionUrl){
+	   		$$.openJcdfDialog(addFormUrl+"?actionUrl="+actionUrl+"&tableId="+listId, '新增'+objectName, 500, 600);
+		};
+		
+		function deleteData(actionUrl){
+			var selectRow = $$.getSingleSelectRow(listId, "请选择你要删除的"+objectName);
+	    	if(selectRow){
+	    		$$.showJcdfConfirm("确认", "确定删除所选的手工账?", 'deleteNoteById("'+actionUrl+'","+selectRow+")');
+	    	}
+		};
+		
+		function deleteNodeById(actionUrl,selectRow){
+			$$.openProcessingDialog();
+			var jsonData = {
+   				'&resource_id':selectRow.resource_id
+			};
+			$.ajax({
+			   type: "POST",
+			   url: actionUrl,
+			   dataType:"json",
+			   data : JSON.stringify(jsonData),
+			   contentType: "application/json",
+			   success: function(data){
+			   	 	$$.closeProcessingDialog();
+					if (data && data.errorCode == 0) {
+						$$.showJcdfMessager('提示消息', '操作成功', 'info');
+						$$.refreshJcdfDatagrid(listId);
+					} else {
+						$$.showJcdfMessager('提示消息', data.msg, 'warning');
+					}
+			   }
+			});
+		};
+		
+		function updateData(actionUrl){
+	    	var selectRow = $$.getSingleSelectRow(listId, "请选择你要编辑的"+objectName);
+
+	    	if(selectRow){
+				var tempUrl = '';
+   				tempUrl = tempUrl+'&resource_id='+selectRow.resource_id;
+   				tempUrl += "&actionUrl="+actionUrl+"&tableId="+listId;
+	    		$$.openJcdfDialog(updateFormUrl+tempUrl, '编辑'+objectName, 500, 600);
+	    	}
+		};
+	
+				
+		/**
+		 * 页面加载时初始化datagrid列表并加载列表数据进行显示
+		 */
+		function loadDatagrid() {
+			$(listTemplate).datagrid({
+				title:objectName+'列表',
+				height:$$.getDatagridHeight(),
+				width:$$.getDatagridWidth(),
+				border: true,
+				nowrap: true,
+				striped: true,
+				fitColumns: true,
+				url:urlSearch,
+				idField:'',
+				columns:[[
+						{field:'resource_id',title:'资源id',width:$$.fillsize(0.1),align:'center'},
+						{field:'resource_name',title:'资源名称',width:$$.fillsize(0.1),align:'center'},
+						{field:'resource_desc',title:'资源描述',width:$$.fillsize(0.1),align:'center'},
+						{field:'sys_uri',title:'访问URI',width:$$.fillsize(0.1),align:'center'},
+						{field:'resource_type',title:'资源类型',width:$$.fillsize(0.1),align:'center'},
+						{field:'create_time',title:'系统生成时间',width:$$.fillsize(0.1),align:'center'},
+						{field:'update_time',title:'修改时间',width:$$.fillsize(0.1),align:'center'},
+						{field:'operator',title:'操作人员',width:$$.fillsize(0.1),align:'center'},
+						{field:'icon_id',title:'图标id',width:$$.fillsize(0.1),align:'center'},
+						{field:'resource_type_name',title:'资源类型名称',width:$$.fillsize(0.1),align:'center'},
+				]],
+				onBeforeLoad:function(){$$.clearSelect(listId);},
+				queryParams:$$.serializeToJson(searchFormId),
+				pagination:true,
+				rownumbers:true,
+				singleSelect:true,
+				pageSize : $$.pageSize,
+				pageList : $$.pageList,
+				toolbar: gridMenuId,
+				loadFilter: function(data){
+					if (data!=null && data.errorCode>0){
+						if(data.msg!=null && data.msg!=""){
+							$$.showJcdfMessager('提示消息', data.msg, 'warning');
+						}
+					}
+					return data; 
+				}
+			});
+		}
+	</script>
+</head> 
+<body class="easyui-layout">
+	<div data-options="region:'north', split:false, border:false" style="padding: 4px 0;">
+		<fieldset style="padding: 5px; border: 1px solid #d4a375;">
+			<legend>信息查询</legend>
+			<form id="cip_admin_resource_searchForm" class="search-form" method="post">
+				<table cellpadding="2" style="width: 100%">
+					<tr>
+						<td align="right">资源id：</td>
+						<td>
+							<input type="text" id="resource_id" name="resource_id" style="width:70%;" class="easyui-validateBox"
+							data-options="" 
+							 /> 
+						
+						</td>
+
+					<tr>
+						<td colspan="8" align="center" >
+							<a class="easyui-linkbutton" iconCls="icon-search" style="margin-right: 20px;" onclick="searchData()">查询</a>
+							<a class="easyui-linkbutton" iconCls="icon-reload" style="margin-right: 20px;" onclick="searchReset()">重置</a>
+							<a class="easyui-linkbutton" iconCls="icon-download" style="margin-right: 20px;" onclick="export_excel()">导出</a>
+						</td>
+					</tr>
+				</table>
+			</form>
+		</fieldset>
+	</div>
+	<div data-options="region:'center', split:false, border:false" style="padding: 0 2px;">
+		<div id="cip_admin_resource_grid_menu">
+			<div style="padding: 5px;">
+		<!--		<a id="button_add" href="#" onclick="addData()" class="easyui-linkbutton" iconCls="icon-add" plain="true">新增</a>
+				<a id="button_edit" href="#" onclick="editData()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">编辑</a>
+				<a id="button_delete" href="#" onclick="delateData()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">删除</a> -->
+			</div>
+		</div>
+		<table id="cip_admin_resource_grid_list" fit="true"></table>
+	</div>
+</body>
+</html>

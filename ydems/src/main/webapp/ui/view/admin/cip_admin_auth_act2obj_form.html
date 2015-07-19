@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var id_obj_attr_id="";
+	var id_obj_id="";
+	var id_resource_id="";
+	var id_root_node_id="";
+	var pageId = 'cip_admin_auth_act2obj_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/admin_auth_act2obj/getData.do?actionId=cip_admin_auth_act2obj_getData";
+	var formTemplate = "#form_cip_admin_auth_act2obj";
+	var listId = "cip_admin_auth_act2obj_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+		id_obj_attr_id=$$.QueryString("obj_attr_id");
+		id_obj_id=$$.QueryString("obj_id");
+		id_resource_id=$$.QueryString("resource_id");
+		id_root_node_id=$$.QueryString("root_node_id");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		
+		loadCombobox('val_src_type','val_src_type');
+loadCombobox('incl_sub_flag','incl_sub_flag');
+
+		callUrl = actionUrl+"?actionId="+actionId;
+		if(mode=="edit"){
+			loadEditData();
+			$('#obj_attr_id').attr({editable:false});
+			$('#obj_id').attr({editable:false});
+			$('#resource_id').attr({editable:false});
+			$('#root_node_id').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			
+			 $('#val_src_type').combobox('setValue', '');
+ $('#incl_sub_flag').combobox('setValue', '');
+
+		}
+
+	};
+	
+	
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"obj_attr_id":id_obj_attr_id,
+		"obj_id":id_obj_id,
+		"resource_id":id_resource_id,
+		"root_node_id":id_root_node_id
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_cip_admin_auth_act2obj" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">权限对象属性id:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="obj_attr_id" name="obj_attr_id" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="">权限对象id:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="obj_id" name="obj_id" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="">行为资源id:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="resource_id" name="resource_id" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="">资源根节点:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="root_node_id" name="root_node_id" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="attr_value">权限对象属性值:</label>
+				</td>
+				<td class="left">
+					<textarea type="" id="attr_value" name="attr_value" style="width:70%;" class="easyui-validatebox" 
+						data-options="required:false"  style="height:100px;"></textarea> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="val_src_type">属性值来源:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="val_src_type" name="val_src_type" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="incl_sub_flag">包含属性下级标识:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="incl_sub_flag" name="incl_sub_flag" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+		
+			<tr>
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

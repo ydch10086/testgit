@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/orange/easyui.css" />
+<link rel="stylesheet" type="text/css"
+	href="../../js/jquery-easyui/themes/icon.css" />
+<link rel="stylesheet" type="text/css" href="../../css/common.css" />
+<link rel="stylesheet" type="text/css" href="../../css/inputfile.css" />
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+<script type="text/javascript"
+	src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+<script type="text/javascript" src="../../js/validate.js"></script>
+<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+<script type="text/javascript" src="../../js/ajaxfileupload.js"></script>
+<script type="text/javascript" src="../../js/combobox.js"></script>
+<script type="text/javascript">
+	var id_scrap_no = "";
+	var pageId = 'ems_mainten_scrap_upload_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var formTemplate = "#form_em_mainten_scrap_upload";
+	var listId = "em_mainten_scrap_upload_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+
+	$(function() {
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function() {
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init() {
+		id_scrap_no = $$.QueryString("scrap_no");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		callUrl = actionUrl + "?actionId=" + actionId +"&id_scrap_no="+id_scrap_no;
+		if (mode == "upload") {
+		} else if (mode == "download") {
+
+		}
+	}
+	/*  
+	 function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	
+	*/
+	function submitData() {
+	var data = {readyState:4,status:200} 
+		$.ajaxFileUpload({
+			url : callUrl,//处理上传文件
+			secureuri : false,
+			data: data,
+			fileElementId : 'file',//file控件id
+			success : function(req,data,status) {
+				if (data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+				alert("dd");
+					/* $$.showJcdfMessager('提示消息', data.msg + '(' + data.errorCode
+							+ ')', 'warning'); */
+				}
+			},
+		});
+	};
+</script>
+</head>
+<body>
+	<form id="form_em_mainten_scrap_upload" method="post"
+		enctype="multipart/form-data" style="text-alige:center;">
+		<div style="width:400px;height:150px;margin:50px auto;">
+			<div
+				style="float:left;height:60px;line-height:60px;font-size: 14px;
+  font-family: 微软雅黑;margin-left:20px;margin-right;">选择文件:</div>
+			<div class="uploader orange">
+				<input type="text" class="filename" readonly="readonly" /> <input
+					type="button" name="file" class="button" value="浏览..." /> <input
+					id="file" type="file" name="file" size="30" />
+			</div>
+			<div style="text-align:center;margin-top:40px;">
+				<a id="btn_save" href="#" class="easyui-linkbutton"
+					iconCls="icon-ok">上传</a> <a id="btn_cancel" href="#"
+					class="easyui-linkbutton" iconCls="icon-cancel"
+					style="margin-left:100px;">取消</a>
+			</div>
+		</div>
+	</form>
+</body>
+<script type="text/javascript">
+	$(function() {
+		$("input[type=file]").change(function() {
+			$(this).parents(".uploader").find(".filename").val($(this).val());
+		});
+		$("input[type=file]").each(
+				function() {
+					if ($(this).val() == "") {
+						$(this).parents(".uploader").find(".filename").val(
+								"No file selected...");
+					}
+				});
+	});
+</script>
+</html>

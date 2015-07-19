@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript" src="../../js/combobox.js"></script>
+	<script type="text/javascript">
+		var id_poi_no="";
+	var pageId = 'ems_check_poi_log_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/check_poi_log/getData.do?actionId=ems_check_poi_log_getData";
+	var formTemplate = "#form_em_check_poi_log";
+	var listId = "em_check_poi_log_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	var loadMdmUrl = "/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+	    poi_org_id = "poi_org";
+	    sup_code_id = "sup_code";
+		id_poi_no=$$.QueryString("poi_no");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		
+		loadCombobox('sup_code','sup_code');
+        /* 加载组织机构列表 */
+		load_Orgn_NameData(loadOrgUrl,poi_org_id);
+		 /* 加载供应商列表 */
+        load_Mdm_NameData(loadMdmUrl,sup_code_id);
+		callUrl = actionUrl+"?actionId="+actionId;
+		if(mode=="edit"){
+			loadEditData();
+			 $("#poi_no").combobox({      
+               readonly:true
+           });
+			$('#poi_no').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			 $(".readonly").combobox({      
+               readonly:true
+           });
+           $("#btn_tr").css("display","none");
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			
+			 $('#poi_time').datetimebox('setValue', getTimeStamp());
+             $('#sup_code').combobox('setValue', '');
+             $('#begin_date').datebox('setValue', getDate());
+
+		}
+
+	};
+	
+	
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"poi_no":id_poi_no
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_em_check_poi_log" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">点检流水号:</label>
+				</td>
+				<td class="left">
+					<input type="" id="poi_no" name="poi_no" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="obj_id">资产编码:</label>
+				</td>
+				<td class="left">
+					<input type="" id="obj_id" name="obj_id" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="poi_time">点检时间:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="poi_time" name="poi_time" style="width:70%;" class="easyui-datetimebox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="poi_org">所属组织:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="poi_org" name="poi_org" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="mod_type_txt">设备型号:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="mod_type_txt" name="mod_type_txt" style="width:70%;" class="easyui-validateBox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="sup_code">供应商:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="sup_code" name="sup_code" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="begin_date">设备起始日:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="begin_date" name="begin_date" style="width:70%;" class="easyui-datebox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="fault_txt">故障描述:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="fault_txt" name="fault_txt" style="width:70%;" class="easyui-validateBox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="che_op">点检人:</label>
+				</td>
+				<td class="left">
+					<input type="" id="che_op" name="che_op" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="exa_op">审核人:</label>
+				</td>
+				<td class="left">
+					<input type="" id="exa_op" name="exa_op" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" id="WebApp_ID" version="2.5">
+  <display-name>ydems</display-name>
+  <!--Spring上下文 配置  -->  
+  <context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>classpath*:applicationContext*.xml</param-value>
+  </context-param>
+  
+  <!-- ================================================================================ -->
+  <!-- spring configure -->
+  <!-- ================================================================================ -->
+ <!-- Spring 监听器 -->  
+  <listener> <!-- spring context load listener -->
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+  </listener>
+  <!--
+  <listener>  
+        <listener-class>com.yd.common.runtime.CIPRuntimeContextListener</listener-class>  
+  </listener>
+  -->
+  
+ 
+  <servlet> <!-- spring dispatcher servlet  -->
+  <!-- Spring 分发器 -->  
+    <servlet-name>spring-web</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <init-param>
+      <param-name>transformWsdlLocations</param-name>
+      <param-value>true</param-value>
+    </init-param>
+    <init-param>
+      <param-name>contextConfigLocation</param-name>
+      <param-value></param-value>
+    </init-param>
+    <init-param>
+      <param-name>debug</param-name>
+      <param-value>false</param-value>
+    </init-param>
+    <load-on-startup>0</load-on-startup>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>spring-web</servlet-name>
+    <url-pattern>*.do</url-pattern> <!-- make all dynamic requests end with ".action" -->
+  </servlet-mapping>
+  
+  <!-- ================================================================================ -->
+  <!-- filters configure -->
+  <!-- ================================================================================ -->
+  
+    
+  <filter>
+    <display-name>AuthLocalFilter</display-name>
+    <filter-name>AuthLocalFilter</filter-name>
+    <filter-class>com.yd.common.session.CIPLocalLoginFilter</filter-class>
+  </filter>
+ 	<filter-mapping>
+    <filter-name>AuthLocalFilter</filter-name>
+    <url-pattern>/actions/*</url-pattern>
+  </filter-mapping>
+ 	<filter-mapping>
+    <filter-name>AuthLocalFilter</filter-name>
+    <url-pattern>/ui/view/*</url-pattern>
+  </filter-mapping> 
+  
+  
+  
+<!--   <filter> Authentication filter
+  <display-name>AuthLocalFilter</display-name>
+    <filter-name>AuthLocalFilter</filter-name>
+    <filter-class>com.yd.common.user.CIPLocalLoginFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>AuthLocalFilter</filter-name>
+    <url-pattern>/actions/*</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+    <filter-name>AuthLocalFilter</filter-name>
+    <url-pattern>/ui/*.html</url-pattern>
+  </filter-mapping>
+  
+    <display-name>AuthRemoteFilter</display-name>
+    <filter-name>LoginFilter</filter-name>
+    <filter-class>com.yd.common.user.CIPRemoteLoginFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>LoginFilter</filter-name>
+    <url-pattern>/actions/*</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+    <filter-name>LoginFilter</filter-name>
+    <url-pattern>/ui/*.html</url-pattern>
+  </filter-mapping>
+    -->
+  
+  
+  <!-- ================================================================================ -->
+  <!-- jndi configure -->
+  <!-- ================================================================================ -->
+  <resource-ref> <!-- adapt weblogic server  -->
+    <res-ref-name>jndi_base</res-ref-name>
+    <res-auth>Container</res-auth>
+    <mapped-name>jndi_base</mapped-name>
+  </resource-ref>
+</web-app>

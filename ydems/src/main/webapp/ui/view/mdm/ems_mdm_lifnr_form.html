@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+	var id_sup_code="";
+	var pageId = 'ems_mdm_lifnr_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;             
+	//actionId和cip_admin_resource表中的resource_id对应                      
+	var getUrl = "/ydems/actions/mdm_lifnr/getData.do?actionId=ems_mdm_lifnr_getData";
+	//该页面form表单对应的id
+	var formTemplate = "#form_em_mdm_lifnr";
+	var listId = "em_mdm_lifnr_list";
+	/*获取供应商使用状态*/
+	var ddicUrl = "/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=";
+	var editHistoryData = null;
+	
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+		id_sup_code=$$.QueryString("sup_code");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		callUrl = actionUrl+"?actionId="+actionId;
+		/* loadCombobox('sup_code','sup_code'); */
+		/*加载供应商启用状态  */
+		loadCombobox(ddicUrl,"sup_status","sup_status");
+		if(mode=="edit"){
+			loadEditData();			 
+           $("#sup_code").combobox({      
+               readonly:true
+           });
+			$('#sup_code').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			 $(".readonly").combobox({      
+	               readonly:true
+	           });
+	           $("#btn_tr").css("display","none");	          
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			/*  $('#sup_code').combobox('setValue', '');*/
+			 $('#sup_status').combobox('setValue', ''); 
+		}
+	};
+
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"sup_code":id_sup_code
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		debugger;
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+	<script type="text/javascript" src="../../js/combobox.js"></script>
+</head>
+<body>
+	<form id="form_em_mdm_lifnr" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">供应商编码:</label>
+				</td>
+				<td class="left">
+					<input type="" id="sup_code" name="sup_code" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:true" /> 
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="sup_code_name">供应商名称:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="sup_code_name" name="sup_code_name" style="width:70%;" class="easyui-validateBox readonly" 
+						data-options="required:true"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="sup_adress">联系地址:</label>
+				</td>
+				<td class="left">
+					<textarea type="" id="sup_adress" name="sup_adress" style="width:70%;height:60px;" class="easyui-validatebox readonly" 
+						data-options="required:false"  style="height:100px;"></textarea> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="sup_contact">联系电话:</label>
+				</td>
+				<td class="left">
+					<input type="" id="sup_contact" name="sup_contact" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+		    <tr>
+				<td class="right">
+					<label for="sup_status">使用状态:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="sup_status" name="sup_status" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 										
+				</td>
+			</tr>
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript" src="../../js/combobox.js"></script>
+	<script type="text/javascript">
+		var id_mainten_no="";
+	var pageId = 'ems_mainten_log_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/mainten_log/getData.do?actionId=ems_mainten_log_getData";
+	var formTemplate = "#form_em_mainten_log";
+	var listId = "em_mainten_log_list";
+	var ddicUrl = "/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=";
+	var editHistoryData = null;
+	var equipUrl = "/ydems/actions/code_bigequip_dm/searchData.do?actionId=ems_code_bigequip_dm_searchData";
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	var loadMdmUrl = "/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData";
+	var loadEmployeeUrl = "/ydems/actions/mdm_employee/searchData.do?actionId=ems_mdm_employee_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+		id_mainten_no=$$.QueryString("mainten_no");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		obj_id = "obj_id";
+		sup_code_id = 'sup_code';
+		mainten_org_id = "mainten_org";
+		mainten_status_id = "mainten_status";
+		mainten_op_id = "mainten_op";
+		/* loadCombobox("sup_code","sup_code");
+        loadCombobox("mainten_status","mainten_status"); */
+        /* 人员信息列表 */
+        load_Empolyee_Data(loadEmployeeUrl,mainten_op_id);
+        /* 加载设备对象列表 */
+        loadEquipIdData(equipUrl,obj_id);
+        /* 加载组织机构列表 */
+        load_Orgn_NameData(loadOrgUrl,mainten_org_id);
+        /* 加载供应商列表 */
+        load_Mdm_NameData(loadMdmUrl,sup_code_id);
+        /* 加载保养状态 */
+        loadCombobox(ddicUrl,mainten_status_id,'mainten_status');
+		callUrl = actionUrl+"?actionId="+actionId;
+		if(mode=="edit"){
+			loadEditData();
+			 $("#mainten_no").combobox({      
+               readonly:true
+           });
+			$('#mainten_no').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			 $(".readonly").combobox({      
+               readonly:true
+           });
+			$("#btn_tr").css("display","none");
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			
+			 $('#sup_code').combobox('setValue', '');
+           $('#set_date').datebox('setValue', getDate());
+               $('#begin_date').datebox('setValue', getDate());
+              $('#mainten_status').combobox('setValue', '');
+
+		}
+
+	};
+	
+	
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"mainten_no":id_mainten_no
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_em_mainten_log" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">保养流水号:</label>
+				</td>
+				<td class="left">
+					<input type="" id="mainten_no" name="mainten_no" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="obj_id">设备资产编码:</label>
+				</td>
+				<td class="left">
+					<input type="" id="obj_id" name="obj_id" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="mainten_org">分拨中心:</label>
+				</td>
+				<td class="left">
+					<input type="" id="mainten_org" name="mainten_org" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="sup_code">供应商:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="sup_code" name="sup_code" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="set_date">定期保养日期:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="set_date" name="set_date" style="width:70%;" class="easyui-datebox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="begin_date">有效起始日期:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="begin_date" name="begin_date" style="width:70%;" class="easyui-datebox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="mainten_op">保养人工号:</label>
+				</td>
+				<td class="left">
+					<input type="" id="mainten_op" name="mainten_op" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="mainten_status">保养状态:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="mainten_status" name="mainten_status" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+		
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

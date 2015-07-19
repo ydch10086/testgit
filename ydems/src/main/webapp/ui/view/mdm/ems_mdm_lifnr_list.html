@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var objectName = '供应商基础信息';
+		var listTemplate = '#em_mdm_lifnr_list';
+		var listId = "em_mdm_lifnr_list";//该页面中用来显示数据的table的id
+		var formSearchTemplate = '#em_mdm_lifnr_searchForm';
+		var searchFormId = "em_mdm_lifnr_searchForm";
+		var gridMenuId = '#em_mdm_lifnr_list_menu';//用来指定动作按钮对应的div
+		var addFormUrl = 'mdm/ems_mdm_lifnr_form.html?actionId=ems_mdm_lifnr_form&mode=add';
+		var updateFormUrl = 'mdm/ems_mdm_lifnr_form.html?actionId=ems_mdm_lifnr_form&mode=edit';
+		var getFormUrl = 'mdm/ems_mdm_lifnr_form.html?actionId=ems_mdm_lifnr_form&mode=display';
+		var urlSearch = '/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData';
+		var urlExport= '/ydems/actions/mdm_lifnr/exportEntities.do?actionId=ems_mdm_lifnr_exportEntities';
+		var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+		var pageId = 'ems_mdm_lifnr_list'; //pageId用来标示该页面 在数据库中是上级资源id
+		var appId = '/ydems/';
+		var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+		var urlActionForm = ""; //action form url
+		var authActions = {}; //当前用户授权的行为项目
+		var expellActions = {
+			"ems_mdm_lifnr_searchData":urlSearch,
+			"ems_mdm_lifnr_exportEntities":urlExport
+		}; //当前用户需要特殊处理的按钮，不在menubar上显示的 
+		
+		var today = getToday();
+		$(function(){
+			//loadCompanyCombobox();
+			//loadCombobox();
+			//pageId：标示页面      gridMenuId:页面显示动作按钮的div的id     authActions：用户授权行为   expellActions:需要隐藏的按钮
+			//getAuthButtons方法中会执行urlResource+pageId的请求，会完成按钮的添加并未按钮赋予相关的id,doAction()事件
+			getAuthButtons(pageId,gridMenuId,authActions,expellActions);
+			loadDatagrid();//最终完成了页面样式渲染及存数据库查询所有的数据
+		});
+		
+		//点击操作按钮以后  执行该方法
+		function doAction(pageId,buttonId,actionUrl){
+		debugger;
+		   //判断是否有该按钮的权限
+			if(authActions.hasOwnProperty(buttonId)){
+				if(buttonId.indexOf('addData')>0){
+					addData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('updateData')>0){
+					updateData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('deleteData')>0){
+					deleteData(buttonId,appId+actionUrl);
+				}
+				else if( buttonId.indexOf('getData')>0){
+					getData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('searchData')>0){
+					searchData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('refresh')>0){
+					refresh(buttonId,appId+actionUrl);
+				}
+				else {
+					//默认操作
+					var selectRow = $$.getSingleSelectRow(listId, "请选择你要操作的"+objectName);
+
+			    	if(selectRow){
+						var tempUrl = '';
+   						tempUrl = tempUrl+'&sup_code='+selectRow.sup_code;
+		   				tempUrl += "&actionUrl="+appId+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+			    		$$.openJcdfDialog(urlActionForm+tempUrl, '操作'+objectName, 500, 600);
+			    	}					
+				}
+			}
+			else {
+				alert('当前用户没有该操作授权!');
+			}
+		};
+		
+		function refresh(buttonId,actionUrl){
+			$.ajax({
+				   type: "POST",
+				   url: actionUrl+"?actionId="+buttonId,
+				   dataType:"json",
+				   success: function(data){
+				   	 	$$.closeProcessingDialog();
+						if (data && data.errorCode == 0) {
+							$$.showJcdfMessager('提示消息', '操作成功', 'info');
+						} else {
+							$$.showJcdfMessager('提示消息', data.msg, 'warning');
+						}
+				   }
+			});
+		};
+		
+		function searchData(buttonId,actionUrl){
+			var params = $$.serializeToJson(formSearchTemplate);
+			var json = { "search_condition" : JSON.stringify(params) };
+			$(listTemplate).datagrid('load', json );		
+		};
+		
+		function exportExcel(buttonId,actionUrl){
+			var params = $$.serializeToJson(formSearchTemplate);
+			$('#'+searchFormId).form('submit',{    
+			    url:actionUrl,    
+			    onSubmit: function(param){
+			    	param.search_condition = JSON.stringify(params);
+			    },
+			    success: function(data){   
+			    	var oData = JSON.parse(data);
+			        if (oData&&oData.errorCode){   
+			        	$$.showJcdfMessager('提示消息', oData.msg, 'warning');   
+			        }    
+			    } 
+			}); 		
+		};
+		
+		
+		function searchReset(){
+			$(formSearchTemplate).form('reset');
+		};
+		
+		
+		function addData(buttonId,actionUrl){
+	   		$$.openJcdfDialog(addFormUrl+"&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId, '新增'+objectName, 500, 600);
+		};
+		function getData(buttonId,actionUrl){
+			var selectRow = $$.getSingleSelectRow(listId, "请选择你要查看的"+objectName);
+
+	    	if(selectRow){
+				var tempUrl = '';
+   				tempUrl = tempUrl+'&sup_code='+selectRow.sup_code;
+   				tempUrl += "&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+	    		$$.openJcdfDialog(getFormUrl+tempUrl, '查看'+objectName, 500, 600);
+	    	}
+		};
+		
+		function deleteData(buttonId,actionUrl){
+			var selectRow = $$.getSingleSelectRow(listId, "请选择你要删除的"+objectName);
+	    	if(selectRow){
+	    		$$.showJcdfConfirm("确认", "确定删除所选的"+objectName+"?", "deleteNodeById('"+buttonId+"','"+actionUrl+"','"+selectRow.sup_code+"')");
+	    	}
+		};
+		
+		function deleteNodeById(buttonId,actionUrl,sup_code){
+			$$.openProcessingDialog();
+			var jsonData = {
+			   				"sup_code":sup_code
+						};
+			$.ajax({
+			   type: "POST",
+			   url: actionUrl+"?actionId="+buttonId,
+			   dataType:"json",
+			   data : JSON.stringify(jsonData),
+			   contentType: "application/json",
+			   success: function(data){
+			   	 	$$.closeProcessingDialog();
+					if (data && data.errorCode == 0) {
+						$$.showJcdfMessager('提示消息', '操作成功', 'info');
+						$$.refreshJcdfDatagrid(listId);
+					} else {
+						$$.showJcdfMessager('提示消息', data.msg, 'warning');
+					}
+			   }
+			});
+		};
+		
+		function updateData(buttonId,actionUrl){
+		   //listId="em_mdm_lifnr_list"
+	    	var selectRow = $$.getSingleSelectRow(listId, "请选择你要编辑的"+objectName);
+
+	    	if(selectRow){
+				var tempUrl = '';
+   				tempUrl = tempUrl+'&sup_code='+selectRow.sup_code;
+   				tempUrl += "&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+	    		$$.openJcdfDialog(updateFormUrl+tempUrl, '编辑'+objectName, 500, 600);
+	    	}
+		};
+	
+				
+		/**
+		 * 页面加载时初始化datagrid列表并加载列表数据进行显示
+		 */
+		function loadDatagrid() {
+		//上面初始化数据中会将var listTemplate = '#em_mdm_lifnr_list';传入到下面方法中，那么id="em_mdm_lifnr_list"的标签中会被渲染
+			$(listTemplate).datagrid({
+				title:objectName+'列表',
+				height:$$.getDatagridHeight(),
+				width:$$.getDatagridWidth(),
+				border: true,
+				nowrap: true,
+				striped: true,
+				fitColumns: true,
+				/* datagrid在创建完成后会根据url请求数据，这是通过ajax来完成的。
+				服务器在完成请求处理后应返回带有rows属性的数据，如果用到分页，还需要有total属性 */
+				url:urlSearch,
+				idField:'',
+				columns:[[
+						{field:'sup_code',title:'供应商编码',width:$$.fillsize(0.1),align:'center'},
+						{field:'sup_code_name',title:'供应商名称',width:$$.fillsize(0.1),align:'center'},
+						/* {field:'sup_status',title:'使用状态',width:$$.fillsize(0.1),align:'center'}, */
+						{field:'sup_adress',title:'联系地址',width:$$.fillsize(0.1),align:'center'},
+						{field:'sup_contact',title:'联系电话',width:$$.fillsize(0.1),align:'center'},
+						{field:'operator',title:'修改者',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_time',title:'修改日期',width:$$.fillsize(0.1),align:'center'},
+						{field:'sup_status_name',title:'使用状态名称',width:$$.fillsize(0.1),
+						styler : function(value, row, index) {
+							if (row.sup_status == 1) {
+								return 'background-color:#ffee00;color:red;';
+							}
+						},
+						align:'center'},
+						
+				]],
+				/*onBeforeLoad:当加载数据的请求发出前触发，返回 false 就取消加载动作。*/
+				onBeforeLoad:function(){$$.clearSelect(listId);},
+				/*queryParams这个属性的作用其实就是在url的请求中添加额外的参数；*/
+				queryParams:$$.serializeToJson(searchFormId),
+				/* 分页控件  */
+				pagination:true,
+				/* 行号 */
+				rownumbers:true,
+				/* 是否单选 */
+				singleSelect:true,
+				/* 每页显示的记录条数，默认为10  */
+				pageSize : $$.pageSize,
+				/* 可以设置每页记录条数的列表  */
+				pageList : $$.pageList,
+				toolbar: gridMenuId,
+				onClickRow : function(rowNum, record) {
+						var sup_status = record.sup_status;
+						if (sup_status == 1) {
+							$("#ems_mdm_lifnr_deleteData").css("display",
+									"none");
+						} else {
+							$("#ems_mdm_lifnr_deleteData").css("display",
+									"inline-block");
+						}
+					},	
+				/*数据格式过滤或解析*/
+				loadFilter: function(data){
+					if (data!=null && data.errorCode>0){
+						if(data.msg!=null && data.msg!=""){
+						//alert(rows[0].sup_code_name);
+					    $$.showJcdfMessager('提示消息', data.msg,'warning');
+						}
+					}
+					return data; 
+					
+				}
+			});
+		}
+	</script>
+</head> 
+<body class="easyui-layout">
+	<div data-options="region:'north', split:false, border:false" style="padding: 4px 0;">
+		<fieldset style="padding: 5px; border: 1px solid #d4a375;">
+			<legend>信息查询</legend>
+			<form id="em_mdm_lifnr_searchForm" class="search-form" method="post">
+				<table cellpadding="2" style="width: 100%">
+					<tr>
+						<td align="right">供应商编码：</td>
+						<td>
+							<input type="text" id="sup_code" name="sup_code" class="easyui-validatebox"
+							data-options="onShowPanel:function (){loadCombobox('sup_code','sup_code')}" 
+							 /> 
+						
+						</td>
+                        <td align="right">供应商名称：</td>
+						<td>
+							<input type="" id="sup_code_name" name="sup_code_name" class="easyui-validatebox"
+							data-options="" 
+							 /> 
+						
+						</td>
+						<td align="right">联系电话：</td>
+						<td>
+							<input type="" id="sup_contact" name="sup_contact" class="easyui-validatebox"
+							data-options="" 
+							 /> 
+						
+						</td>
+					<tr>
+						<td colspan="8" align="center" >
+							<a class="easyui-linkbutton" iconCls="icon-search" style="margin-right: 20px;" onclick="searchData('ems_mdm_lifnr_searchData',urlSearch)">查询</a>
+							<a class="easyui-linkbutton" iconCls="icon-reload" style="margin-right: 20px;" onclick="searchReset()">重置</a>
+							<a class="easyui-linkbutton" iconCls="icon-download" style="margin-right: 20px;" onclick="exportExcel('ems_mdm_lifnr_exportEntities',urlExport)">导出</a>
+						</td>
+					</tr>
+				</table>
+			</form>
+		</fieldset>
+	</div>
+	<div data-options="region:'center', split:false, border:false" style="padding: 0 2px;">
+		<div id="em_mdm_lifnr_list_menu">
+			<!-- <div style="padding: 5px;">
+			<a id="button_add" href="#" onclick="addData()" class="easyui-linkbutton" iconCls="icon-add" plain="true">新增</a>
+				<a id="button_edit" href="#" onclick="editData()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">编辑</a>
+				<a id="button_delete" href="#" onclick="delateData()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">删除</a>
+			</div> -->
+		</div>
+		<table id="em_mdm_lifnr_list" fit="true"></table>
+	</div>
+</body>
+</html>

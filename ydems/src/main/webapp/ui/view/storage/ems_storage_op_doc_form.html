@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var id_doc_no="";
+	var pageId = 'ems_storage_op_doc_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/storage_op_doc/getData.do?actionId=ems_storage_op_doc_getData";
+	var formTemplate = "#form_em_storage_op_doc";
+	var listId = "em_storage_op_doc_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+		id_doc_no=$$.QueryString("doc_no");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		
+		loadCombobox('doc_op_type','doc_op_type');
+loadCombobox('op_type','op_type');
+
+		callUrl = actionUrl+"?actionId="+actionId;
+		if(mode=="edit"){
+			loadEditData();
+			$('#doc_no').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			
+			 $('#doc_op_type').combobox('setValue', '');
+ $('#op_type').combobox('setValue', '');
+ $('#op_date').datebox('setValue', getDate());
+ $('#use_time').datetimebox('setValue', getTimeStamp());
+
+		}
+
+	};
+	
+	
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"doc_no":id_doc_no
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_em_storage_op_doc" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">操作凭证流水:</label>
+				</td>
+				<td class="left">
+					<input type="" id="doc_no" name="doc_no" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="cla_id">对象类标识:</label>
+				</td>
+				<td class="left">
+					<input type="" id="cla_id" name="cla_id" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="doc_year">年度:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="doc_year" name="doc_year" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="doc_month">月度:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="doc_month" name="doc_month" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="doc_op_type">出入标识:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="doc_op_type" name="doc_op_type" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="op_type">操作类型:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="op_type" name="op_type" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="doc_op_amt">操作数量:</label>
+				</td>
+				<td class="left">
+					<input type="" id="doc_op_amt" name="doc_op_amt" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="doc_unit">数量单位:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="doc_unit" name="doc_unit" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="op_emp">入库出库人:</label>
+				</td>
+				<td class="left">
+					<input type="" id="op_emp" name="op_emp" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="op_date">入库出库日期:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="op_date" name="op_date" style="width:70%;" class="easyui-datebox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="use_emp">领用人:</label>
+				</td>
+				<td class="left">
+					<input type="" id="use_emp" name="use_emp" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="use_time">领用时间:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="use_time" name="use_time" style="width:70%;" class="easyui-datetimebox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="use_org">领用机构:</label>
+				</td>
+				<td class="left">
+					<input type="" id="use_org" name="use_org" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="op_org">出入库机构:</label>
+				</td>
+				<td class="left">
+					<input type="" id="op_org" name="op_org" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+		
+			<tr>
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

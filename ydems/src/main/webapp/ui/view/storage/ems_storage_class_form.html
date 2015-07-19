@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var id_cla_id="";
+	var pageId = 'ems_storage_class_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/storage_class/getData.do?actionId=ems_storage_class_getData";
+	var formTemplate = "#form_em_storage_class";
+	var listId = "em_storage_class_list";
+	var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+	var editHistoryData = null;
+	
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+		id_cla_id=$$.QueryString("cla_id");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		
+		loadCombobox('cla_type','cla_type');
+loadCombobox('cla_sub_type','cla_sub_type');
+loadCombobox('cla_bel_type','cla_bel_type');
+loadCombobox('sup_code','sup_code');
+
+		callUrl = actionUrl+"?actionId="+actionId;
+		if(mode=="edit"){
+			loadEditData();
+			$('#cla_id').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			
+			 $('#cla_type').combobox('setValue', '');
+ $('#cla_sub_type').combobox('setValue', '');
+ $('#cla_bel_type').combobox('setValue', '');
+ $('#sup_code').combobox('setValue', '');
+
+		}
+
+	};
+	
+	
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"cla_id":id_cla_id
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_em_storage_class" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">对象类标识:</label>
+				</td>
+				<td class="left">
+					<input type="" id="cla_id" name="cla_id" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="cla_type">对象类类型:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="cla_type" name="cla_type" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_sub_type">对象类子类型:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="cla_sub_type" name="cla_sub_type" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_txt">对象类名称:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="cla_txt" name="cla_txt" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_bel_type">所属种类:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="cla_bel_type" name="cla_bel_type" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="sup_code">供应商:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="sup_code" name="sup_code" style="width:70%;" class="easyui-combobox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_bra">所属品牌:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="cla_bra" name="cla_bra" style="width:70%;" class="easyui-validateBox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_orgeh">管理组织:</label>
+				</td>
+				<td class="left">
+					<input type="" id="cla_orgeh" name="cla_orgeh" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_imp_amt">入库数量:</label>
+				</td>
+				<td class="left">
+					<input type="" id="cla_imp_amt" name="cla_imp_amt" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_amt">库存数量:</label>
+				</td>
+				<td class="left">
+					<input type="" id="cla_amt" name="cla_amt" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_exp_amt">出库数量:</label>
+				</td>
+				<td class="left">
+					<input type="" id="cla_exp_amt" name="cla_exp_amt" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="cla_unit">数量单位:</label>
+				</td>
+				<td class="left">
+					<input type="" id="cla_unit" name="cla_unit" style="width:70%;" class="easyui-numberbox" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+		
+			<tr>
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

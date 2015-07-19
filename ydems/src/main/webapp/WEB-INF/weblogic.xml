@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<weblogic-web-app xmlns="http://www.bea.com/ns/weblogic/weblogic-web-app" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.bea.com/ns/weblogic/weblogic-web-app http://www.bea.com/ns/weblogic/weblogic-web-app/1.0/weblogic-web-app.xsd">
+	<container-descriptor>
+		<prefer-web-inf-classes>true</prefer-web-inf-classes>
+	</container-descriptor>
+	<!-- 此处主要为了解决weblogic同一个域下部署多个应用可能导致sessionId冲突问题 -->
+	<!-- <session-descriptor>
+		<cookie-name>YDFDP_JSESSIONID</cookie-name>
+	</session-descriptor> -->
+    <context-root>demo</context-root>
+   
+</weblogic-web-app>

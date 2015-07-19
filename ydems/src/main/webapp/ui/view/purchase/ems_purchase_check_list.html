@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var objectName = '设备验收表';
+		var listTemplate = '#em_purchase_check_list';
+		var listId = "em_purchase_check_list";
+		var formSearchTemplate = '#em_purchase_check_searchForm';
+		var searchFormId = "em_purchase_check_searchForm";
+		var gridMenuId = '#em_purchase_check_list_menu';
+		var addFormUrl = 'purchase/ems_purchase_check_form.html?actionId=ems_purchase_check_form&mode=add';
+		var updateFormUrl = 'purchase/ems_purchase_check_form.html?actionId=ems_purchase_check_form&mode=edit';
+		var getFormUrl = 'purchase/ems_purchase_check_form.html?actionId=ems_purchase_check_form&mode=display';
+		var urlSearch = '/ydems/actions/purchase_check/searchData.do?actionId=ems_purchase_check_searchData';
+		var urlExport= '/ydems/actions/purchase_check/exportEntities.do?actionId=ems_purchase_check_exportEntities';
+		var urlPurchasePlainSearch = '/ydems/actions/purchase_plain/searchData.do?actionId=ems_purchase_plain_searchData';
+		var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+		var pageId = 'ems_purchase_check_list';
+		var appId = '/ydems/';
+		var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+		var urlActionForm = ""; //action form url
+		var authActions = {}; //当前用户授权的行为项目
+		var expellActions = {
+			"ems_purchase_check_searchData":urlSearch,
+			"ems_purchase_plain_searchData":urlPurchasePlainSearch,
+			"ems_purchase_check_exportEntities":urlExport
+		}; //当前用户需要特殊处理的按钮，不在menubar上显示的 
+		
+		var today = getToday();
+		$(function(){
+			//loadCompanyCombobox();
+			//loadCombobox();
+			getAuthButtons(pageId,gridMenuId,authActions,expellActions);
+			loadDatagrid();
+		});
+		
+		function doAction(pageId,buttonId,actionUrl){
+			if(authActions.hasOwnProperty(buttonId)){
+				if(buttonId.indexOf('addData')>0){
+					addData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('updateData')>0){
+					updateData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('deleteData')>0){
+					deleteData(buttonId,appId+actionUrl);
+				}
+				else if( buttonId.indexOf('getData')>0){
+					getData(buttonId,appId+actionUrl);
+				}
+				 else if(buttonId.indexOf('searchData')>0){
+					searchData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('refresh')>0){
+					refresh(buttonId,appId+actionUrl);
+				}
+				else {
+					//默认操作
+					var selectRow = $$.getSingleSelectRow(listId, "请选择你要操作的"+objectName);
+
+			    	if(selectRow){
+						var tempUrl = '';
+   						tempUrl = tempUrl+'&che_no='+selectRow.che_no;
+		   				tempUrl += "&actionUrl="+appId+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+			    		$$.openJcdfDialog(urlActionForm+tempUrl, '操作'+objectName, 500, 600);
+			    	}					
+				}
+			}
+			else {
+				alert('当前用户没有该操作授权!');
+			}
+		};
+		
+		function refresh(buttonId,actionUrl){
+			$.ajax({
+				   type: "POST",
+				   url: actionUrl+"?actionId="+buttonId,
+				   dataType:"json",
+				   success: function(data){
+				   	 	$$.closeProcessingDialog();
+						if (data && data.errorCode == 0) {
+							$$.showJcdfMessager('提示消息', '操作成功', 'info');
+						} else {
+							$$.showJcdfMessager('提示消息', data.msg, 'warning');
+						}
+				   }
+			});
+		};
+		
+		function searchData(buttonId,actionUrl){
+			var params = $$.serializeToJson(formSearchTemplate);
+			var json = { "search_condition" : JSON.stringify(params) };
+			$(listTemplate).datagrid('load', json );		
+		};
+		function searchPlainData(buttonId,actionUrl)
+		{
+		  /*  var params = $$.serializeToJson(formSearchTemplate);
+			var json = { "search_condition" : JSON.stringify(params) }; */
+			$("#em_purchase_check_list").hide();
+			loadPlainDatagrid();
+		}
+		function exportExcel(buttonId,actionUrl){
+			var params = $$.serializeToJson(formSearchTemplate);
+			$('#'+searchFormId).form('submit',{    
+			    url:actionUrl,    
+			    onSubmit: function(param){
+			    	param.search_condition = JSON.stringify(params)
+			    },
+			    success: function(data){   
+			    	var oData = JSON.parse(data);
+			        if (oData&&oData.errorCode){   
+			        	$$.showJcdfMessager('提示消息', oData.msg, 'warning');   
+			        }    
+			    } 
+			}); 		
+		};
+		
+		
+		function searchReset(){
+			$(formSearchTemplate).form('reset');
+		};
+		
+		
+		function addData(buttonId,actionUrl){
+	   		$$.openJcdfDialog(addFormUrl+"&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId, '新增'+objectName, 500, 600);
+		};
+		
+		function getData(buttonId,actionUrl){
+			var selectRow = $$.getSingleSelectRow(listId, "请选择你要查看单笔验收记录!");
+
+	    	if(selectRow){
+				var tempUrl = '';
+   				tempUrl = tempUrl+'&che_no='+selectRow.che_no;
+   				tempUrl += "&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+	    		$$.openJcdfDialog(getFormUrl+tempUrl, '查看'+objectName, 500, 600);
+	    	}
+		};
+		
+		function deleteData(buttonId,actionUrl){
+			var selectRow = $$.getSingleSelectRow(listId, "请选择你要删除的"+objectName);
+	    	if(selectRow){
+	    		$$.showJcdfConfirm("确认", "确定删除所选的"+objectName+"?", "deleteNodeById('"+buttonId+"','"+actionUrl+"','"+selectRow.che_no+"')");
+	    	}
+		};
+		
+		function deleteNodeById(buttonId,actionUrl,che_no){
+			$$.openProcessingDialog();
+			var jsonData = {
+			   				"che_no":che_no
+						};
+			$.ajax({
+			   type: "POST",
+			   url: actionUrl+"?actionId="+buttonId,
+			   dataType:"json",
+			   data : JSON.stringify(jsonData),
+			   contentType: "application/json",
+			   success: function(data){
+			   	 	$$.closeProcessingDialog();
+					if (data && data.errorCode == 0) {
+						$$.showJcdfMessager('提示消息', '操作成功', 'info');
+						$$.refreshJcdfDatagrid(listId);
+					} else {
+						$$.showJcdfMessager('提示消息', data.msg, 'warning');
+					}
+			   }
+			});
+		};
+		
+		function updateData(buttonId,actionUrl){
+	    	var selectRow = $$.getSingleSelectRow(listId, "请选择你要编辑的"+objectName);
+
+	    	if(selectRow){
+				var tempUrl = '';
+   				tempUrl = tempUrl+'&che_no='+selectRow.che_no;
+   				tempUrl += "&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+	    		$$.openJcdfDialog(updateFormUrl+tempUrl, '编辑'+objectName, 500, 600);
+	    	}
+		};
+	
+				
+		/**
+		 * 页面加载时初始化datagrid列表并加载列表数据进行显示
+		 */
+		function loadDatagrid() {
+			$(listTemplate).datagrid({
+				title:objectName+'列表',
+				height:$$.getDatagridHeight(),
+				width:$$.getDatagridWidth(),
+				border: true,
+				nowrap: true,
+				striped: true,
+				fitColumns: true,
+				url:urlSearch,
+				idField:'',
+				columns:[[
+						{field:'che_no',title:'设备验收流水号',width:$$.fillsize(0.1),align:'center'},
+						{field:'che_obj',title:'设备编号',width:$$.fillsize(0.1),align:'center'},
+						/* {field:'che_org',title:'操作机构组织',width:$$.fillsize(0.1),align:'center'}, */
+						{field:'che_org_name',title:'申请分拨',width:$$.fillsize(0.1),align:'center'},
+						/* {field:'sup_code',title:'验收供应商',width:$$.fillsize(0.1),align:'center'}, */
+						{field:'sup_code_name',title:'供应商名称',width:$$.fillsize(0.1),align:'center'},
+						{field:'che_date',title:'设备验收时间',width:$$.fillsize(0.1),align:'center'},
+						{field:'che_emp',title:'验收人员',width:$$.fillsize(0.1),align:'center'},
+						{field:'result_type',title:'验收结果',width:$$.fillsize(0.1),align:'center'},
+						{field:'pro_emp',title:'整改跟进人员',width:$$.fillsize(0.1),align:'center'},
+						{field:'pro_txt',title:'整改结果',width:$$.fillsize(0.1),align:'center'},
+						{field:'plain_date',title:'整改要求完成时间',width:$$.fillsize(0.1),align:'center'},
+						{field:'act_date',title:'整改实际完成时间',width:$$.fillsize(0.1),align:'center'},
+						{field:'pur_no',title:'采购计划流水号',width:$$.fillsize(0.1),align:'center'},
+					/* 	{field:'che_status',title:'验收记录状态',width:$$.fillsize(0.1),align:'center'}, */
+						{field:'operator',title:'修改者',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_time',title:'修改日期',width:$$.fillsize(0.1),align:'center'},
+						{field:'che_status_name',title:'验收记录状态名称',width:$$.fillsize(0.1),color:'#FFEEFF',
+						styler : function(value,row, index) {
+							if (row.che_status == 1) {
+								return 'background-color:#ffee00;color:red;';
+							}
+						},
+						align:'center'},
+						/* {field:'result_type',title:'验收结果',width:$$.fillsize(0.1),align:'center'}, */
+						{field:'result_type_name',title:'验收结果',width:$$.fillsize(0.1),align:'center'},
+				]],
+				onBeforeLoad:function(){$$.clearSelect(listId);},
+				queryParams:$$.serializeToJson(searchFormId),
+				pagination:true,
+				rownumbers:true,
+				singleSelect:true,
+				pageSize : $$.pageSize,
+				pageList : $$.pageList,
+				toolbar: gridMenuId,
+				onClickRow : function(rowNum, record) {
+						var che_status = record.che_status;
+						if (che_status == 1) {
+							$("#ems_purchase_check_deleteData").css("display",
+									"none");
+							$("#ems_purchase_check_updateData").css("display",
+									"none");
+						} else {
+							$("#ems_purchase_check_deleteData").css("display",
+									"inline-block");
+							$("#ems_purchase_check_updateData").css("display",
+									"inline-block");
+						}
+					},
+				loadFilter: function(data){
+					if (data!=null && data.errorCode>0){
+						if(data.msg!=null && data.msg!=""){
+							$$.showJcdfMessager('提示消息', data.msg, 'warning');
+						}
+					}
+					return data; 
+				}
+			});
+		}
+		function loadPlainDatagrid()
+		{
+		$(listTemplate).datagrid({
+				title:"采购计划信息",
+				height:$$.getDatagridHeight(),
+				width:$$.getDatagridWidth(),
+				border: true,
+				nowrap: true,
+				striped: true,
+				fitColumns: true,
+				url:urlPurchasePlainSearch,
+				idField:'',
+				columns:[[
+						{field:'pur_no',title:'采购计划流水号',width:$$.fillsize(0.1),align:'center'},
+						{field:'pur_obj',title:'设备编号',width:$$.fillsize(0.1),align:'center'},
+						/* {field:'pur_org',title:'所属组织',width:$$.fillsize(0.1),align:'center'}, */
+						{field:'pur_org_name',title:'所属分拨中心',width:$$.fillsize(0.1),align:'center'},
+						{field:'pur_date',title:'采购日期',width:$$.fillsize(0.1),align:'center'},
+						{field:'type_txt',title:'设备型号',width:$$.fillsize(0.1),align:'center'},
+						{field:'sup_code',title:'供应商',width:$$.fillsize(0.1),align:'center'},
+						{field:'pla_date',title:'计划到货日期',width:$$.fillsize(0.1),align:'center'},
+						{field:'pur_amt',title:'申请数量',width:$$.fillsize(0.1),align:'center'},
+						/* {field:'pur_unit',title:'数量单位',width:$$.fillsize(0.1),align:'center'}, */
+						 {field:'pur_unit_name',title:'数量单位',width:$$.fillsize(0.1),align:'center'}, 
+						{field:'app_emp',title:'申请人',width:$$.fillsize(0.1),align:'center'},
+						{field:'exa_emp',title:'审核人',width:$$.fillsize(0.1),align:'center'},
+						{field:'app_date',title:'申请日期',width:$$.fillsize(0.1),align:'center'},
+						{field:'exa_date',title:'审核日期',width:$$.fillsize(0.1),align:'center'},
+					/* 	{field:'pur_status',title:'记录状态',width:$$.fillsize(0.1),align:'center'}, */
+					    {field:'pur_status_name',title:'记录状态',width:$$.fillsize(0.1),align:'center'},
+						{field:'operator',title:'修改者',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_time',title:'修改日期',width:$$.fillsize(0.1),align:'center'},
+						/* {field:'pur_status_name',title:'记录状态名称',width:$$.fillsize(0.1),align:'center'}, */
+				]],
+				onBeforeLoad:function(){$$.clearSelect(listId);},
+				queryParams:$$.serializeToJson(searchFormId),
+				pagination:true,
+				rownumbers:true,
+				singleSelect:true,
+				pageSize : $$.pageSize,
+				pageList : $$.pageList,
+				toolbar: gridMenuId,
+				loadFilter: function(data){
+					if (data!=null && data.errorCode>0){
+						if(data.msg!=null && data.msg!=""){
+							$$.showJcdfMessager('提示消息', data.msg, 'warning');
+						}
+					}
+					return data; 
+				}
+			});
+		}
+	</script>
+</head> 
+<body class="easyui-layout">
+	<div data-options="region:'north', split:false, border:false" style="padding: 4px 0;">
+		<fieldset style="padding: 5px; border: 1px solid #d4a375;">
+			<legend>信息查询</legend>
+			<form id="em_purchase_check_searchForm" class="search-form" method="post">
+				<table cellpadding="2" style="width: 100%">
+					<tr>
+						<td align="right">设备验收流水号：</td>
+						<td>
+							<input type="" id="che_no" name="che_no" class="easyui-numberbox"
+							data-options="" 
+							 /> 						
+						</td>
+						<td>采购计划流水号：</td>
+						<td>
+							<input type="" id="pur_no" name="pur_no" class="easyui-validatebox"
+							data-options="" 
+							 /> 						
+						</td>
+						<td>设备编号：</td>
+						<td>
+							<input type="" id="che_obj" name="che_obj" class="easyui-validatebox"
+							data-options="" 
+							 /> 						
+						</td>
+						<td>申请分拨：</td>
+						<td>
+							<input type="" id="che_org_name" name="che_org_name" class="easyui-validatebox"
+							data-options="" 
+							 /> 						
+						</td>
+						
+						<td>验收人员：</td>
+						<td>
+							<input type="" id="che_emp" name="che_emp" class="easyui-validatebox"
+							data-options="" 
+							 /> 					
+						</td>
+						<td>验收记录状态：</td>
+						<td>
+							<input type="" id="che_status_name" name="che_status_name" class="easyui-validatebox"
+							data-options="" 
+							 /> 
+						</td>
+                      </tr>
+					<tr>
+						<td colspan="8" align="center" >
+							<a class="easyui-linkbutton" iconCls="icon-search" style="margin-right: 20px;" onclick="searchData('ems_purchase_check_searchData',urlSearch)">查询</a>
+							<a class="easyui-linkbutton" iconCls="icon-reload" style="margin-right: 20px;" onclick="searchReset()">重置</a>
+							<a class="easyui-linkbutton" iconCls="icon-download" style="margin-right: 20px;" onclick="exportExcel('ems_purchase_check_exportEntities',urlExport)">导出</a>
+						</td>
+					</tr>
+				</table>
+			</form>
+		</fieldset>
+	</div>
+	<div data-options="region:'center', split:false, border:false" style="padding: 0 2px;">
+		<div id="em_purchase_check_list_menu">
+			<div style="padding: 5px;">
+		<!--		<a id="button_add" href="#" onclick="addData()" class="easyui-linkbutton" iconCls="icon-add" plain="true">新增</a>
+				<a id="button_edit" href="#" onclick="editData()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">编辑</a>
+				<a id="button_delete" href="#" onclick="delateData()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">删除</a> -->
+			</div>
+		</div>
+		<table id="em_purchase_check_list" fit="true"></table>
+		<table id="em_purchase_plain_list" fit="true"></table>
+	</div>
+</body>
+</html>

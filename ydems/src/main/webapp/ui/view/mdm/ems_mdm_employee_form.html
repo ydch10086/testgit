@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript" src="../../js/combobox.js"></script>
+	<script type="text/javascript">
+    var id_emp_id="";
+	var pageId = 'ems_mdm_employee_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/mdm_employee/getData.do?actionId=ems_mdm_employee_getData";
+	var formTemplate = "#form_em_mdm_employee";
+	var listId = "em_mdm_employee_list";
+	//获取在职状态
+	var ddicUrl ="/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=";
+	var editHistoryData = null;
+	/*获取组织编号  */
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+	    emp_org_id = "emp_org";
+		id_emp_id=$$.QueryString("emp_id");
+		//alert("id_emp_id="+id_emp_id);
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		callUrl = actionUrl+"?actionId="+actionId;
+	    //加载在职状态
+		loadCombobox(ddicUrl,"emp_status","emp_status");
+		/* 加载组织机构列表 */
+        load_Orgn_NameData(loadOrgUrl,emp_org_id);
+		if(mode=="edit"){
+			loadEditData();			 
+           $("#emp_id").combobox({      
+               readonly:true
+           });
+		/* 	$('#emp_id').attr({editable:false}); */
+		}else if(mode=="display"){
+			loadEditData();
+			 $(".readonly").combobox({      
+               readonly:true
+           });
+           $("#btn_tr").css("display","none");
+			$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			
+			 $('#emp_status').combobox('setValue', '');
+
+		}
+	};
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"emp_id":id_emp_id
+		};
+		$.ajax({
+		   type: "post",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+</head>
+<body>
+	<form id="form_em_mdm_employee" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">人员工号:</label>
+				</td>
+				<td class="left">
+					<input type="" id="emp_id" name="emp_id" style="width:70%;" class="easyui-numberbox readonly" 
+						data-options="required:true" />
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="emp_name">人员姓名:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="emp_name" name="emp_name" style="width:70%;" class="easyui-validateBox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="emp_org">所属分拨中心:</label>
+				</td>
+				<td class="left">
+					<input type="" id="emp_org" name="emp_org" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="emp_status">在职状态:</label>
+				</td>
+				<td class="left">
+				<input type="text" id="emp_status" name="emp_status" style="width:70%;" class="easyui-combobox readonly" />		
+				</td>
+			</tr>
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>

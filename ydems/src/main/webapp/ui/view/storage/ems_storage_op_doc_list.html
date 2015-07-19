@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript">
+		var objectName = '物料操作凭证';
+		var listTemplate = '#em_storage_op_doc_list';
+		var listId = "em_storage_op_doc_list";
+		var formSearchTemplate = '#em_storage_op_doc_searchForm';
+		var searchFormId = "em_storage_op_doc_searchForm";
+		var gridMenuId = '#em_storage_op_doc_list_menu';
+		var addFormUrl = 'storage/ems_storage_op_doc_form.html?actionId=ems_storage_op_doc_form&mode=add';
+		var updateFormUrl = 'storage/ems_storage_op_doc_form.html?actionId=ems_storage_op_doc_form&mode=edit';
+		var getFormUrl = 'storage/ems_storage_op_doc_form.html?actionId=ems_storage_op_doc_form&mode=display';
+		var urlSearch = '/ydems/actions/storage_op_doc/searchData.do?actionId=ems_storage_op_doc_searchData';
+		var urlExport= '/ydems/actions/storage_op_doc/exportEntities.do?actionId=ems_storage_op_doc_exportEntities';
+		var ddicUrl = '/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=';
+		var pageId = 'ems_storage_op_doc_list';
+		var appId = '/ydems/';
+		var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+		var urlActionForm = ""; //action form url
+		var authActions = {}; //当前用户授权的行为项目
+		var expellActions = {
+			"ems_storage_op_doc_searchData":urlSearch,
+			"ems_storage_op_doc_exportEntities":urlExport
+		}; //当前用户需要特殊处理的按钮，不在menubar上显示的 
+		
+		var today = getToday();
+		$(function(){
+			//loadCompanyCombobox();
+			//loadCombobox();
+			getAuthButtons(pageId,gridMenuId,authActions,expellActions);
+			loadDatagrid();
+		});
+		
+		function doAction(pageId,buttonId,actionUrl){
+			if(authActions.hasOwnProperty(buttonId)){
+				if(buttonId.indexOf('addData')>0){
+					addData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('updateData')>0){
+					updateData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('deleteData')>0){
+					deleteData(buttonId,appId+actionUrl);
+				}
+				else if( buttonId.indexOf('getData')>0){
+					getData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('searchData')>0){
+					searchData(buttonId,appId+actionUrl);
+				}
+				else if(buttonId.indexOf('refresh')>0){
+					refresh(buttonId,appId+actionUrl);
+				}
+				else {
+					//默认操作
+					var selectRow = $$.getSingleSelectRow(listId, "请选择你要操作的"+objectName);
+
+			    	if(selectRow){
+						var tempUrl = '';
+   						tempUrl = tempUrl+'&doc_no='+selectRow.doc_no;
+		   				tempUrl += "&actionUrl="+appId+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+			    		$$.openJcdfDialog(urlActionForm+tempUrl, '操作'+objectName, 500, 600);
+			    	}					
+				}
+			}
+			else {
+				alert('当前用户没有该操作授权!');
+			}
+		};
+		
+		function refresh(buttonId,actionUrl){
+			$.ajax({
+				   type: "POST",
+				   url: actionUrl+"?actionId="+buttonId,
+				   dataType:"json",
+				   success: function(data){
+				   	 	$$.closeProcessingDialog();
+						if (data && data.errorCode == 0) {
+							$$.showJcdfMessager('提示消息', '操作成功', 'info');
+						} else {
+							$$.showJcdfMessager('提示消息', data.msg, 'warning');
+						}
+				   }
+			});
+		};
+		
+		function searchData(buttonId,actionUrl){
+			var params = $$.serializeToJson(formSearchTemplate);
+			var json = { "search_condition" : JSON.stringify(params) };
+			$(listTemplate).datagrid('load', json );		
+		};
+		
+		function exportExcel(buttonId,actionUrl){
+			var params = $$.serializeToJson(formSearchTemplate);
+			$('#'+searchFormId).form('submit',{    
+			    url:actionUrl,    
+			    onSubmit: function(param){
+			    	param.search_condition = JSON.stringify(params)
+			    },
+			    success: function(data){   
+			    	var oData = JSON.parse(data);
+			        if (oData&&oData.errorCode){   
+			        	$$.showJcdfMessager('提示消息', oData.msg, 'warning');   
+			        }    
+			    } 
+			}); 		
+		};
+		
+		
+		function searchReset(){
+			$(formSearchTemplate).form('reset');
+		};
+		
+		
+		function addData(buttonId,actionUrl){
+	   		$$.openJcdfDialog(addFormUrl+"&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId, '新增'+objectName, 500, 600);
+		};
+		
+		function getData(buttonId,actionUrl){
+			var selectRow = $$.getSingleSelectRow(listId, "请选择你要查看的"+objectName);
+
+	    	if(selectRow){
+				var tempUrl = '';
+   				tempUrl = tempUrl+'&doc_no='+selectRow.doc_no;
+   				tempUrl += "&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+	    		$$.openJcdfDialog(getFormUrl+tempUrl, '查看'+objectName, 500, 600);
+	    	}
+		};
+		
+		function deleteData(buttonId,actionUrl){
+			var selectRow = $$.getSingleSelectRow(listId, "请选择你要删除的"+objectName);
+	    	if(selectRow){
+	    		$$.showJcdfConfirm("确认", "确定删除所选的"+objectName+"?", "deleteNodeById('"+buttonId+"','"+actionUrl+"','"+selectRow.doc_no+"')");
+	    	}
+		};
+		
+		function deleteNodeById(buttonId,actionUrl,doc_no){
+			$$.openProcessingDialog();
+			var jsonData = {
+			   				"doc_no":doc_no
+						};
+			$.ajax({
+			   type: "POST",
+			   url: actionUrl+"?actionId="+buttonId,
+			   dataType:"json",
+			   data : JSON.stringify(jsonData),
+			   contentType: "application/json",
+			   success: function(data){
+			   	 	$$.closeProcessingDialog();
+					if (data && data.errorCode == 0) {
+						$$.showJcdfMessager('提示消息', '操作成功', 'info');
+						$$.refreshJcdfDatagrid(listId);
+					} else {
+						$$.showJcdfMessager('提示消息', data.msg, 'warning');
+					}
+			   }
+			});
+		};
+		
+		function updateData(buttonId,actionUrl){
+	    	var selectRow = $$.getSingleSelectRow(listId, "请选择你要编辑的"+objectName);
+
+	    	if(selectRow){
+				var tempUrl = '';
+   				tempUrl = tempUrl+'&doc_no='+selectRow.doc_no;
+   				tempUrl += "&actionUrl="+actionUrl+"&tableId="+listId+"&refActionId="+buttonId;
+	    		$$.openJcdfDialog(updateFormUrl+tempUrl, '编辑'+objectName, 500, 600);
+	    	}
+		};
+	
+				
+		/**
+		 * 页面加载时初始化datagrid列表并加载列表数据进行显示
+		 */
+		function loadDatagrid() {
+			$(listTemplate).datagrid({
+				title:objectName+'列表',
+				height:$$.getDatagridHeight(),
+				width:$$.getDatagridWidth(),
+				border: true,
+				nowrap: true,
+				striped: true,
+				fitColumns: true,
+				url:urlSearch,
+				idField:'',
+				columns:[[
+						{field:'doc_no',title:'操作凭证流水',width:$$.fillsize(0.1),align:'center'},
+						{field:'cla_id',title:'对象类标识',width:$$.fillsize(0.1),align:'center'},
+						{field:'doc_year',title:'年度',width:$$.fillsize(0.1),align:'center'},
+						{field:'doc_month',title:'月度',width:$$.fillsize(0.1),align:'center'},
+						{field:'doc_op_type',title:'出入标识',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_type',title:'操作类型',width:$$.fillsize(0.1),align:'center'},
+						{field:'doc_op_amt',title:'操作数量',width:$$.fillsize(0.1),align:'center'},
+						{field:'doc_unit',title:'数量单位',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_emp',title:'入库出库人',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_date',title:'入库出库日期',width:$$.fillsize(0.1),align:'center'},
+						{field:'use_emp',title:'领用人',width:$$.fillsize(0.1),align:'center'},
+						{field:'use_time',title:'领用时间',width:$$.fillsize(0.1),align:'center'},
+						{field:'use_org',title:'领用机构',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_org',title:'出入库机构',width:$$.fillsize(0.1),align:'center'},
+						{field:'operator',title:'修改者',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_time',title:'修改日期',width:$$.fillsize(0.1),align:'center'},
+						{field:'doc_op_type_name',title:'出入标识名称',width:$$.fillsize(0.1),align:'center'},
+						{field:'op_type_name',title:'操作类型名称',width:$$.fillsize(0.1),align:'center'},
+				]],
+				onBeforeLoad:function(){$$.clearSelect(listId);},
+				queryParams:$$.serializeToJson(searchFormId),
+				pagination:true,
+				rownumbers:true,
+				singleSelect:true,
+				pageSize : $$.pageSize,
+				pageList : $$.pageList,
+				toolbar: gridMenuId,
+				loadFilter: function(data){
+					if (data!=null && data.errorCode>0){
+						if(data.msg!=null && data.msg!=""){
+							$$.showJcdfMessager('提示消息', data.msg, 'warning');
+						}
+					}
+					return data; 
+				}
+			});
+		}
+	</script>
+</head> 
+<body class="easyui-layout">
+	<div data-options="region:'north', split:false, border:false" style="padding: 4px 0;">
+		<fieldset style="padding: 5px; border: 1px solid #d4a375;">
+			<legend>信息查询</legend>
+			<form id="em_storage_op_doc_searchForm" class="search-form" method="post">
+				<table cellpadding="2" style="width: 100%">
+					<tr>
+						<td align="right">操作凭证流水：</td>
+						<td>
+							<input type="" id="doc_no" name="doc_no" style="width:70%;" class="easyui-numberbox"
+							data-options="" 
+							 /> 
+						
+						</td>
+
+					<tr>
+						<td colspan="8" align="center" >
+							<a class="easyui-linkbutton" iconCls="icon-search" style="margin-right: 20px;" onclick="searchData('ems_storage_op_doc_searchData',urlSearch)">查询</a>
+							<a class="easyui-linkbutton" iconCls="icon-reload" style="margin-right: 20px;" onclick="searchReset()">重置</a>
+							<a class="easyui-linkbutton" iconCls="icon-download" style="margin-right: 20px;" onclick="exportExcel('ems_storage_op_doc_exportEntities',urlExport)">导出</a>
+						</td>
+					</tr>
+				</table>
+			</form>
+		</fieldset>
+	</div>
+	<div data-options="region:'center', split:false, border:false" style="padding: 0 2px;">
+		<div id="em_storage_op_doc_list_menu">
+			<div style="padding: 5px;">
+		<!--		<a id="button_add" href="#" onclick="addData()" class="easyui-linkbutton" iconCls="icon-add" plain="true">新增</a>
+				<a id="button_edit" href="#" onclick="editData()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">编辑</a>
+				<a id="button_delete" href="#" onclick="delateData()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">删除</a> -->
+			</div>
+		</div>
+		<table id="em_storage_op_doc_list" fit="true"></table>
+	</div>
+</body>
+</html>

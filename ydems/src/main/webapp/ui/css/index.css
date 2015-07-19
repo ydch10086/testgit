@@ -1,0 +1,14 @@
+body  {margin:0px; padding:0px; font-family:Arial,Helvetica,sans-serif; font-size:12px;}
+.header {width:100%; height:83px; border-bottom:1px solid #FF9C42;}
+.logo {float:left; width:150px; height:70px; margin-top:5px; margin-left:10px;}
+.line {float:left; width:2px; height:80px; margin-left:15px;}
+.title{float:left; width:216px; height:39px; margin-left:15px; margin-top:21px;}
+.exit {float:right; width:200px; height:30px; margin-right:20px; margin-top:26px; line-height:30px; text-align:right;}
+.red  {color:#FF0000;}
+.main {clear:both; width:100%; overflow:hidden; margin-top:10px;}
+.left {float:left; width:18%; height:500px; background:#FFF4D9;}
+.right{float:left; width:80%; height:500px; margin-left:10px; border:1px solid #CCCCCC;}
+a{color:black; text-decoration: none;}
+a#logout:HOVER{
+	color: red;
+}

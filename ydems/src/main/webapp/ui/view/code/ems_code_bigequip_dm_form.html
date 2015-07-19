@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/orange/easyui.css"/>
+	<link rel="stylesheet" type="text/css" href="../../js/jquery-easyui/themes/icon.css"/>
+	<link rel="stylesheet" type="text/css" href="../../css/common.css"/>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/jquery.easyui.min.js"></script>
+	<script type="text/javascript" src="../../js/jquery-easyui/locale/easyui-lang-zh_CN.js"></script>
+	<script type="text/javascript" src="../../js/validate.js"></script>
+	<script type="text/javascript" src="../../js/jcdf-1.0.js"></script>
+	<script type="text/javascript" src="../../js/combobox.js"></script>
+	<script type="text/javascript">
+		var id_bigequip_id="";
+	var pageId = 'ems_code_bigequip_dm_form';
+	var appId = '/ydems';
+	var actionUrl;
+	var actionId;
+	var tableId;
+	var mode = "";
+	var callUrl;
+	var getUrl = "/ydems/actions/code_bigequip_dm/getData.do?actionId=ems_code_bigequip_dm_getData";
+	var formTemplate = "#form_em_code_bigequip_dm";
+	var listId = "em_code_bigequip_dm_list";
+	var ddicUrl = "/ydems/actions/common/domain/getDomains.do?actionId=system_getDomains&domainId=";
+	var editHistoryData = null;
+	/* 对象类型子类型 */
+	var relateUrl ="/ydems/actions/code_relate_dm/searchData.do?actionId=ems_code_relate_dm_searchData";
+	/* 设备一级分类 */
+	var equipTypeUrl ="/ydems/actions/code_type_dm/searchData.do?actionId=ems_code_type_dm_searchData";
+	/* 供应商主数据 */
+	var loadMdmUrl = "/ydems/actions/mdm_lifnr/searchData.do?actionId=ems_mdm_lifnr_searchData";
+	/*所属分拨列表*/
+	var loadOrgUrl = "/ydems/actions/mdm_orgeh/searchData.do?actionId=ems_mdm_orgeh_searchData";
+	var urlResource = "/ydems/actions/common/user/getResources.do?actionId=system_getResources&resource_id=";
+	var urlActionForm = ""; //action form url
+	var authActions = {}; //当前用户授权的行为项目
+	var expellActions = {};
+	
+	
+	$(function(){
+		init();
+		//保存按钮单击事件
+		$("#btn_save").bind("click", function() {
+			submitData();
+		});
+		//取消按钮单击事件
+		$("#btn_cancel").bind("click", function(){
+			$$.closeJcdfDialog();
+		});
+	});
+
+	function init(){
+	    bigequip_sub_type_id = "bigequip_sub_type";
+	    bigequip_type_id = "bigequip_type";
+	    sup_code_id = "sup_code";
+	    org_id_id = "org_id";
+		id_bigequip_id=$$.QueryString("bigequip_id");
+		actionUrl = $$.QueryString("actionUrl");
+		tableId = $$.QueryString("tableId");
+		mode = $$.QueryString("mode");
+		actionId = $$.QueryString("refActionId");
+		callUrl = actionUrl+"?actionId="+actionId;
+		/* 对象类型子类型类别 */
+		loadRelateData(relateUrl,bigequip_sub_type_id);
+		/*加载设备类型一级分类列表*/
+		loadEquipTypeData(equipTypeUrl,bigequip_type_id);
+		/* 加载供应商主数据列表 */
+		load_Mdm_NameData(loadMdmUrl,sup_code_id);
+		/* 加载组织机构主数据列表 */
+		load_Orgn_NameData(loadOrgUrl,org_id_id);
+		if(mode=="edit"){
+			loadEditData();			  
+           $("#bigequip_id").combobox({      
+               readonly:true
+           });
+			//$('#typ_type').attr({editable:false});
+		}else if(mode=="display"){
+			loadEditData();
+			 $(".readonly").combobox({      
+               readonly:true
+           });
+           $("#btn_tr").css("display","none");
+			//$('#btn_save').attr({ "disabled": "disabled" });
+		}
+		else if( mode == "add" ){
+			// $('#typ_status').combobox('setValue', '');
+		}
+
+	};
+	
+	
+	/**
+	 * 加载历史数据，用于修改
+	 */
+	function loadEditData(){
+		$$.openProcessingDialog();
+		var jsonData = {
+		"bigequip_id":id_bigequip_id
+		};
+		$.ajax({
+		   type: "POST",
+		   url: getUrl,
+		   dataType:"json",
+		   contentType: "application/json",
+		   data: JSON.stringify(jsonData),
+		   success: function(oData){
+		   	 	$$.closeProcessingDialog();
+				if (oData!=null && oData.errorCode == 0) {
+					editHistoryData = oData.data;
+					//填充修改记录的历史数据
+					$(formTemplate).form('load', editHistoryData);					
+				} else {
+		 			$$.showJcdfMessager('提示消息',oData.msg,'warning');
+				}
+		   }
+		});
+	}
+	
+	function submitData(){
+		if (!$(formTemplate).form('validate')) {
+			return false;
+		}
+		var jsonData = $$.serializeToJson(formTemplate);
+		if(!jsonData) return false;
+		//如果数据验证通过(即数据合法)
+		$$.openProcessingDialog();
+	
+		//ajax提交数据
+		$.ajax({
+			type : "POST",
+			url : callUrl,
+			dataType : "json",
+			data : JSON.stringify(jsonData),
+			contentType: "application/json",
+			success : function(data) {
+				$$.closeProcessingDialog();
+				if (data && data.errorCode==0) {
+					$$.showJcdfMessager('提示消息', '操作成功', 'info');
+					$$.closeJcdfDialog();
+					$$.refreshJcdfDatagrid(tableId);
+				} else {
+					$$.showJcdfMessager('提示消息', data.msg+'('+data.errorCode+')', 'warning');
+				}
+			}
+		});
+	};
+	</script>
+	<script type="text/javascript" src="../../js/combobox.js"></script>
+</head>
+<body>
+	<form id="form_em_code_bigequip_dm" class="form">
+		<table>
+			<tr>
+				<td class="right">
+					<label for="">大型设备标识:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="bigequip_id" name="bigequip_id" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:true" /> 
+
+				</td>
+			</tr>
+		
+			<tr>
+				<td class="right">
+					<label for="bigequip_name">设备名称:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="bigequip_name" name="bigequip_name" style="width:70%;" class="easyui-validateBox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="bigequip_sub_type">设备子类型:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="bigequip_sub_type" name="bigequip_sub_type" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="bigequip_type">所属一级分类:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="bigequip_type" name="bigequip_type" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="sup_code">供应商:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="sup_code" name="sup_code" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="brand">所属品牌:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="brand" name="brand" style="width:70%;" class="easyui-validateBox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>
+			<tr>
+				<td class="right">
+					<label for="brand">所属分拨:</label>
+				</td>
+				<td class="left">
+					<input type="text" id="org_id" name="org_id" style="width:70%;" class="easyui-combobox readonly" 
+						data-options="required:false"  /> 
+											
+				</td>
+			</tr>		
+			<tr id="btn_tr">
+				<td colspan="2" align="center" style="padding: 20px;">
+					<a id="btn_save" href="#" class="easyui-linkbutton" iconCls="icon-ok">确定</a>
+					<a id="btn_cancel" href="#" class="easyui-linkbutton" iconCls="icon-cancel">取消</a>
+				</td>
+			</tr>
+		</table>
+	</form>
+</body>
+</html>
